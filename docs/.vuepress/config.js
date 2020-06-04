@@ -48,6 +48,7 @@ module.exports = {
                     '/showcase/windowless/',
                     '/showcase/gifs/',
                     '/showcase/pong/',
+                    '/showcase/android/',
                 ]
             },
             '/news/'
