@@ -1,7 +1,4 @@
-<!--
 # Dependencies and the window
--->
-## 依存ライブラリと window
 
 <!--
 ## Boring, I know
