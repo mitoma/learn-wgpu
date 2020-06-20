@@ -1,5 +1,9 @@
 # Introduction
 
+このサイトは https://sotrh.github.io/learn-wgpu/ の非公式かつ個人的な和訳です。ゴールは Beginner までの和訳。
+
+明白な誤りやご連絡は https://github.com/mitoma/learn-wgpu までどうぞ。
+
 <!--
 ## What is wgpu?
 -->
