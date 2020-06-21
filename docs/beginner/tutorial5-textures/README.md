@@ -1,14 +1,26 @@
 # Textures and bind groups
 
+<!--
 Up to this point we have been drawing super simple shapes. While we can make a game with just triangles, but trying to draw highly detailed objects would massively limit what devices could even run our game. We can get around this problem with textures. Textures are images overlayed over a triangle mesh to make the mesh seem more detailed. There are multiple types of textures such as normal maps, bump maps, specular maps, and diffuse maps. We're going to talk about diffuse maps, or in laymens terms, the color texture.
+-->
+この時点で、とてもシンプルな形を描画できるようになりました。三角形だけでもゲームを作ることはできますが、物体の詳細を表現しようとするためには非常に限定的です。texture を使うことでそれらの問題を回避できます。texture は画像を三角形のメッシュにかぶせてメッシュをより詳細なものに見せてくれます。テクスチャには複数のタイプがありのノーマルマップ、バンプマップ、スペキュラーマップ、ディヒューズマップなどがあります。ディヒューズマップを素人の言葉でいうと color texture ということになります。
 
+<!--
 ## Loading an image from a file
+-->
+## ファイルからイメージをロードする
 
+<!--
 If we want to map an image to our mesh, we first need an image. Let's use this happy little tree.
+-->
+イメージをメッシュにマップしようとするなら、最初に画像が必要です。このハッピーで小さな木を使いましょう。
 
 ![a happy tree](./happy-tree.png)
 
+<!--
 We'll use the [image crate](https://crates.io/crates/image) to load our tree. In `State`'s `new()` method add the following just after creating the `swap_chain`:
+-->
+[image crate](https://crates.io/crates/image) を使って木の画像をロードします。`State` の `new()` メソッドの `swap_chain` の前に追加しましょう。
 
 ```rust
 let diffuse_bytes = include_bytes!("happy-tree.png");
@@ -19,7 +31,10 @@ use image::GenericImageView;
 let dimensions = diffuse_image.dimensions();
 ```
 
+<!--
 Here we just grab the bytes from our image file, and load them into an image, which we then convert into a `Vec` of rgba bytes. We also save the image's dimensions for when we create the actual `Texture`. Speaking of creating the actual `Texture`.
+-->
+これは画像ファイルからバイト列をとってき、イメージをロードした後に rgba のバイトの `Vec` に変換しています。また、画像の次元も `Texture` 生成時のために保存しておきます。実際に `Texture` を作っていきましょう。
 
 ```rust
 let size = wgpu::Extent3d {
@@ -30,6 +45,8 @@ let size = wgpu::Extent3d {
 let diffuse_texture = device.create_texture(&wgpu::TextureDescriptor {
     // All textures are stored as 3d, we represent our 2d texture
     // by setting depth to 1.
+    // すべてのテクスチャは三次元に配置されます。
+    // 二次元のテクスチャは depth 1 として表現します。
     size: wgpu::Extent3d {
         width: dimensions.0,
         height: dimensions.1,
@@ -37,21 +54,30 @@ let diffuse_texture = device.create_texture(&wgpu::TextureDescriptor {
     },
     // You can store multiple textures of the same size in one
     // Texture object
+    // 一つのテクスチャオブジェクトに複数の同じサイズのテクスチャを保存することができます。
     array_layer_count: 1,
-    mip_level_count: 1, // We'll talk about this a little later
+    mip_level_count: 1, // We'll talk about this a little later(この項目についてはあとで説明します)
     sample_count: 1,
     dimension: wgpu::TextureDimension::D2,
     format: wgpu::TextureFormat::Rgba8UnormSrgb,
     // SAMPLED tells wgpu that we want to use this texture in shaders
     // COPY_DST means that we want to copy data to this texture
+    // SAMPLED は GPU にテクスチャを sharder で使うことを教えます。
+    // COPY_DST はこのテクスチャにデータをコピーしてほしいということを意味しています。
     usage: wgpu::TextureUsage::SAMPLED | wgpu::TextureUsage::COPY_DST,
     label: Some("diffuse_texture"),
 });
 ```
 
+<!--
 ## Getting data into a Texture
+-->
+## テクスチャからデータを取得する
 
+<!--
 The `Texture` struct has no methods to interact with the data directly. We actually need to load the data into a `Buffer` and copy it into the `Texture`. First we need to create a buffer big enough to hold our texture data. Luckily we have `diffuse_rgba`!
+-->
+`Texture` 構造体にはデータを直接操作するためのメソッドはありません。実際にはデータを `Buffer` からロードして `Texture` にコピーする必要があります。最初に Texture データを保持するのに十分な大きさのバッファを作成する必要があります。幸いにも `diffuse_rgba` がありますね！
 
 ```rust
 let buffer = device.create_buffer_with_data(
@@ -60,7 +86,10 @@ let buffer = device.create_buffer_with_data(
 );
 ```
 
+<!--
 We specified our `diffuse_buffer` to be `COPY_SRC` so that we can copy it to our `diffuse_texture`. We preform the copy using a `CommandEncoder`. We'll need to change `queue`'s mutablility so we can submit the resulting `CommandBuffer`.
+-->
+`diffuse_buffer` を `diffuse_texture` にコピーできるように `COPY_SRC` を明示しました。copy は `CommandEncoder` で行います。`CommandBuffer` の結果を submit するために`queue` の mutability を変更します。
 
 ```rust
 let (device, mut queue) = // ...
@@ -90,15 +119,24 @@ encoder.copy_buffer_to_texture(
 queue.submit(&[encoder.finish()]);
 ```
 
+<!--
 ## TextureViews and Samplers
+-->
 
+<!--
 Now that our texture has data in it, we need a way to use it. This is where a `TextureView` and a `Sampler`. A `TextureView` offers us a *view* into our texture. A `Sampler` controls how the `Texture` is *sampled*. Sampling works similar to the eyedropper tool in Gimp/Photoshop. Our program supplies a coordinate on the texture (known as a texture coordinate), and the sampler then returns a color back based on it's internal parameters.
+-->
+これで texture はデータを持つようになりましたので、使い方が必要です。`TextureView` と `Sampler` というものがあります。 `TextureView` は texture のビューを提供します。`Sampler` は `Texture` のサンプリングの仕方をコントロールします。サンプリングは Gimp や Photoshop のスポイトツールのような役割を果たします。プログラムは与えられたテクスチャ上の座標(テクスチャ座標と言われる)を提供し、`Sampler` はその内部パラメータに基づいて色を返します。
 
+<!--
 Let's define our `diffuse_texture_view` and `diffuse_sampler` now.
+-->
+`diffuse_texture_view` と `diffuse_sampler` を定義しましょう。
 
 ```rust
 // We don't need to configure the texture view much, so let's
 // let wgpu define it.
+// texture_view は wgpu が定義してくれるので、あまり設定することはありません。
 let diffuse_texture_view = diffuse_texture.create_default_view();
 
 let diffuse_sampler = device.create_sampler(&wgpu::SamplerDescriptor {
@@ -114,28 +152,54 @@ let diffuse_sampler = device.create_sampler(&wgpu::SamplerDescriptor {
 });
 ```
 
+<!--
 The `address_mode_*` parameter's determine what to do if the sampler get's a texture coordinate that's outside of the texture. There's a few that we can use.
 * `ClampToEdge`: Any texture coordinates outside the texture will return the color of the nearest pixel on the edges of the texture.
 * `Repeat`: The texture will repeat as texture coordinates exceed the textures dimensions.
 * `MirrorRepeat`: Similar to `Repeat`, but the image will flip when going over boundaries.
+-->
+`address_mode_*` パラメータは、sampler が texture の外の座標の外にを指定したときのふるまいを指定します。設定できる項目は3つです。
+* `ClampToEdge` : どんなはみ出したテクスチャ座標でも、その座標に最も近いテクスチャの端の色を返します
+* `Repeat` : texture 座標が texture のサイズを超えたときは texture が繰り返されます
+* `MirrorRepeat` : `Repeat` と似ていますが、イメージの境界で反転します。
 
 ![address_mode.png](./address_mode.png)
 
+<!--
 The `mag_filter` and `min_filter` options describe what to do when a fragment covers multiple pixels, or there are multiple fragments for one pixel respectively. This often comes into play when viewing a surface from up close, or far away. There are 2 options:
 * `Linear`: This option will attempt to blend the in-between fragments so that they seem to flow together.
 * `Nearest`: In-between fragments will use the color of the nearest pixel. This creates an image that's crisper from far away, but pixelated when view from close up. This can be desirable however if your textures are designed to be pixelated such is in pixel art games, or voxel games like Minecraft.
+-->
+`mag_filter` と `min_filter` はフラグメントが複数のピクセルをカバーするときまたは、1つのピクセルがそれぞれ複数のフラグメントが対応するときのオプションです。これは表面に近づいたり遠ざかったりするときに作用します。2つのオプションがあります。
+* `Linear` : このオプションはその間にあるフラグメントをブレンドしようとするので、なめらかな表示になります。
+* `Nearest` : フラグメントに最も近いピクセルの色を選択します。これは遠い場合にはイメージをギザギザにしますが、近い場合にはピクセルが見えるようになります。これは、もし Minecraft のようにピクセル/ボクセルを強調したゲームの場合には好ましいでしょう。
 
+<!--
 Mipmaps are a complex topic, and will require [their own section](/todo). Suffice to say `mipmap_filter` functions similar to `(mag/min)_filter` as it tells the sampler how to blend between mipmaps.
+-->
+mipmap は複雑なトピックです。[このセクション](/todo)が必要です。`mipmap_filter` は `mag/min_filter` と似ていて、どのように mipmap をブレンドするか GPU に教えると考えておけばよいでしょう。
 
+<!--
 `lod_(min/max)_clamp` are also related to mipmapping, so will skip over them.
+-->
+`lod_(min/max)_clamp` もまた mipmap に関係するのでいったんスキップしましょう。
 
+<!--
 The `compare` is often use in filtering. This is used in techniques such as [shadow mapping](/todo). We don't really care here, but the options are `Never`, `Less`, `Equal`, `LessEqual`, `Greater`, `NotEqual`, `GreaterEqual`, and `Always`.
+-->
+`compare` は filtering の時に使われます。これは[shadow mapping](/todo)のテクニックを使うときに使います。これについては触れないですが、`Never`, `Less`, `Equal`, `LessEqual`, `Greater`, `NotEqual`, `GreaterEqual`, `Always` が指定できます。
 
+<!--
 All these different resources are nice and all, but they doesn't do us much good if we can't plug them in anywhere. This is where `BindGroup`s and `PipelineLayout`s come in.
+-->
+これらのリソースはとても良いものですが、どこにも接続できなければ意味がありません。 `BindGroup` と `PipelineLayout` についてみていきましょう。
 
 ## The BindGroup
 
+<!--
 A `BindGroup` describes a set of resources and how they can be accessed by a shader. We create a `BindGroup` using a `BindGroupLayout`. Let's make one of those first.
+-->
+`BindGroup` は shader にリソース一式にどのようにアクセスすればいいのかを記載します。`BindGroup` を `BindGroupLayout` と使って作りましょう。最初に以下のように書きましょう。
 
 ```rust
 let texture_bind_group_layout = device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
@@ -161,9 +225,16 @@ let texture_bind_group_layout = device.create_bind_group_layout(&wgpu::BindGroup
 });
 ```
 
+<!--
 Our `texture_bind_group_layout` has two bindings: one for a sampled texture at binding 0, and one for a sampler at binding 1. Both of these bindings are visible only to the fragment shader as specified by `FRAGMENT`. The possible values are any bit combination of `NONE`, `VERTEX`, `FRAGMENT`, or `COMPUTE`. Most of the time we'll only use `FRAGMENT` for textures and samplers, but it's good to know what's available.
+-->
+`texture_bind_group_layout` は2つのバインディングがあり、binding 0 はサンプリングされた texture で、binding 1 は sampler です。それぞれの binding はフラグメントシェーダーでだけ可視になるよう `FLAGMENT` を指定しています。`NONE`, `VERTEX`, `FRAGMENT`, `COMPUTE` の bit flat を立てて指定することは可能です。texture と sampler はほとんど常に `FLAGMENT` でだけ使われるものですが、それを知っておくことはよいことでしょう。
 
+<!--
 With `texture_bind_group_layout`, we can now create our `BindGroup`.
+-->
+
+`texture_bind_group_layout` と一緒に `BindGroup` を作りましょう。
 
 ```rust
 let diffuse_bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
@@ -182,9 +253,15 @@ let diffuse_bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
 });
 ```
 
+<!--
 Looking at this you might get a bit of déjà vu. That's because a `BindGroup` is a more specific declaration of the `BindGroupLayout`. The reason why these are separate is to allow us to swap out `BindGroup`s on the fly, so long as they all share the same `BindGroupLayout`. For each texture and sampler we create, we need to create a `BindGroup`.
+-->
+ここでデジャヴを感じるかもしれません。`BindGroup` の多くの仕様の宣言は `BindGroupLayout` でなされているからです。なぜこれらが分かれているかという理由は、同じ `BindGroupLayout` を共有いる場合は `BindGroup` に実行中のスワップアウトを可能にするためです。
 
+<!--
 Now that we have our `diffuse_bind_group`, let's add our texture information to the `State` struct.
+-->
+これで `diffuse_bind_group` が手に入ったのでテクスチャ情報を `State` に追加しましょう。
 
 ```rust
 struct State {
@@ -223,7 +300,10 @@ impl State {
 
 ```
 
+<!--
 We actually use the bind group in the `render()` function.
+-->
+実際に `render()` 内で bind group を使います。
 
 ```rust
 // render()
@@ -234,11 +314,19 @@ render_pass.set_index_buffer(&self.index_buffer, 0, 0);
 render_pass.draw_indexed(0..self.num_indices, 0, 0..1);
 ```
 
+<!--
 The order of these statements is important. The pipeline needs to be set first, then the bind groups, vertex buffers, and index buffer, finally the draw call. If you don't do this, you'll likely get a crash.
+-->
+
+これらの行の順序は重要です。パイプラインは最初にセットされる必要があり、bind group, vertex buffer, index buffer と続き、最後に draw の呼び出しをします。もしそうしなければ多分クラッシュするでしょう。
 
 ## PipelineLayout
 
+<!--
 Remember the `PipelineLayout` we created back in [the pipeline section](/beginner/tutorial3-pipeline#how-do-we-use-the-shaders)? This is finally the time when we get to actually use it. The `PipelineLayout` contains a list of `BindGroupLayout`s that the pipeline can use. Modify `render_pipeline_layout` to use our `texture_bind_group_layout`.
+-->
+
+`PipelineLayout` を [the pipeline section](/beginner/tutorial3-pipeline#how-do-we-use-the-shaders) で作ったことを覚えていますか？これは最後に使うことになります。`PipelineLayout` は `BindGroupLayout` のリストを含めて使うことができます。`render_pipeline_layout` を変更して `texture_bind_group_layout` を使いましょう。
 
 ```rust
 let render_pipeline_layout = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
@@ -246,8 +334,14 @@ let render_pipeline_layout = device.create_pipeline_layout(&wgpu::PipelineLayout
 });
 ```
 
+<!--
 ## A change to the VERTICES
+-->
+## VERTICES を変更します。
+<!--
 There's a few things we need to change about our `Vertex` definition. Up to now we've been using a `color` attribute to dictate the color of our mesh. Now that we're using a texture we want to replace our `color` with `tex_coords`.
+-->
+`Vertex` の定義を少し変更する必要があります。今まで `color` attribute で mesh の色を決定していました。texture を使いたいので `color` を `tex_coords` に置き換えましょう。
 
 ```rust
 #[repr(C)]
@@ -258,7 +352,10 @@ struct Vertex {
 }
 ```
 
+<!--
 We need to reflect these changes in the `VertexBufferDescriptor`.
+-->
+`VertexBufferDescriptor` にも変更を反映する必要があります。
 
 ```rust
 impl Vertex {
@@ -279,6 +376,8 @@ impl Vertex {
                     // We only need to change this to reflect that tex_coords
                     // is only 2 floats and not 3. It's in the same position
                     // as color was, so nothing else needs to change
+                    // tex_coords は 2 要素の float で 3 要素ではないので変更はこれだけです。
+                    // color が同じポジションにあったのなら他の修正はありません。
                     format: wgpu::VertexFormat::Float2,
                 },
             ]
@@ -287,7 +386,10 @@ impl Vertex {
 }
 ```
 
+<!--
 Lastly we need to change `VERTICES` itself.
+-->
+最後に `VERTICES` 自身を変更します。
 
 ```rust
 const VERTICES: &[Vertex] = &[
@@ -301,7 +403,10 @@ const VERTICES: &[Vertex] = &[
 
 ## Shader time
 
+<!--
 Our shaders will need to change inorder to support textures as well. We'll also need to remove any reference to the `color` attribute we used to have. Let's start with the vertex shader.
+-->
+シェーダーにも順々に変更を入れていく必要があります。使っていた `color` attribute は参照されなくなるので削除する必要があります。頂点シェーダから行きましょう。
 
 ```glsl
 // shader.vert
@@ -321,7 +426,10 @@ void main() {
 }
 ```
 
+<!--
 We need to change the fragment shader to take in `v_tex_coords`. We also need to add a reference to our texture and sampler.
+-->
+フラグメントシェーダーには `v_tex_coords` を入れましょう。texture と sampler への参照も必要です。
 
 ```glsl
 // shader.frag
@@ -341,19 +449,32 @@ void main() {
 }
 ```
 
+<!--
 You'll notice that `t_diffuse` and `s_diffuse` are defined with the `uniform` keyword, they don't have `in` nor `out`, and the layout definition uses `set` and `binding` instead of `location`. This is because `t_diffuse` and `s_diffuse` are what we call uniforms. We won't go too deep into what a uniform is, until we talk about uniform buffers in the [cameras section](/beginner/tutorial6-uniforms/). What we need to know, for now, is that `set = 0` corresponds to the 1st parameter in `set_bind_group()`, `binding = 0` relates the the `binding` specified when we create the `BindGroupLayout` and `BindGroup`.
+-->
+`t_diffuse` と `s_diffuse` が `in` や `out` ではなく `uniform` キーワードで定義され、layout の定義が `location` の代わりに `set` と `binding` であることに気づくでしょう。これは `t_diffuse` と `s_diffuse` はどこからでも同様に呼び出されるからです。uniform が何かということについては [cameras section](/beginner/tutorial6-uniforms/) で深く扱います。現段階で知っておくべきことは `set = 0` は `set_bind_group()` の最初のパラメータに一致し、`binding = 0` は `BindGroupLayout` や `BindGroup` で定義された `binding` に関連します。
 
 ## The results
 
+<!--
 If we run our program now we should get the following result.
+-->
+プログラムを走らせると以下のような結果になるでしょう。
 
 ![an upside down tree on a hexagon](./upside-down.png)
 
+<!--
 That's weird, our tree is upside down! This is because wgpu's coordinate system has positive y values going down while texture coords have y as up.
+-->
+
+何たる運命、我らの木はひっくり返ったぞ！これは wgpu の座標系はテクスチャ座標のY座標が上がると実際のY座標が下がるからです。
 
 ![happy-tree-uv-coords.png](./happy-tree-uv-coords.png)
 
+<!--
 We can get our triangle right-side up by inverting the y coord of each texture coord.
+-->
+三角形のそれぞれのテクスチャ座標の右側を反転させることで対応できます。
 
 ```rust
 const VERTICES: &[Vertex] = &[
@@ -365,7 +486,10 @@ const VERTICES: &[Vertex] = &[
 ];
 ```
 
+<!--
 Simplifying that gives us.
+-->
+シンプルに以下の様に書けます。
 
 ```rust
 const VERTICES: &[Vertex] = &[
@@ -377,13 +501,22 @@ const VERTICES: &[Vertex] = &[
 ];
 ```
 
+<!--
 With that in place we now have our tree subscribed right-side up on our hexagon.
+-->
+これで右側の座標が反映されて五角形が適切に描かれます。
 
 ![our happy tree as it should be](./rightside-up.png)
 
+<!--
 ## Cleaning things up
+-->
+## コードのクリーンアップ
 
+<!--
 For convenience sake, let's pull our texture code into its own file called `texture.rs`.
+-->
+便利に使えるように texture のコードを `texture.rs` というファイルに持っていきましょう。
 
 ```rust
 use image::GenericImageView;
@@ -466,16 +599,26 @@ impl Texture {
 }
 ```
 
+<!--
 1. We're using the [failure](https://docs.rs/failure/0.1.6/failure/) crate to simplify error handling.
 2. In order to prevent importing `queue` as `&mut`, we're returning a `CommandBuffer` with our texture. This means we could load multiple textures at the same time, and then submit all there command buffers at once.
+-->
+1. [failure](https://docs.rs/failure/0.1.6/failure/) crate を error handling を簡単にするために使っています。
+2. `queue` を `&mut` で import するのを避けるためにテクスチャを `CommandBuffer` として返します。これは複数のテクスチャを同時にロードし、複数の command buffer の submit を一度に行えるということを意味しています。
 
+<!--
 We need to import `texture.rs` as a module, so somewhere at the top of `main.rs` add the following.
+-->
+これを使うためには `texture.rs` module を `main.rs` のトップで import する必要があります。
 
 ```rust
 mod texture;
 ```
 
+<!--
 Then we need to change `State` to use the `Texture` struct.
+-->
+`State` を `Texture` を使うために変更が必要になります。
 
 ```rust
 struct State {
@@ -484,9 +627,15 @@ struct State {
 }
 ```
 
+<!--
 We're storing the bind group separately so that `Texture` doesn't need know how the `BindGroup` is layed out.
+-->
+bind group を分割して保管しているのは `Texture` が `BindGroup` のレイアウトを知る必要がないようにするためです。
 
+<!--
 The texture creation code in `new()` gets a lot simpler.
+-->
+texture を作るコードを `new()` に入れるのはとてもシンプルです。
 
 ```rust
 let diffuse_bytes = include_bytes!("happy-tree.png");
@@ -495,7 +644,10 @@ let (diffuse_texture, cmd_buffer) = texture::Texture::from_bytes(&device, diffus
 queue.submit(&[cmd_buffer]);
 ```
 
+<!--
 Creating the `diffuse_bind_group` changes slightly to use the `view` and `sampler` fields of our `diffuse_texture`.
+-->
+`diffuse_bind_group` を作るところは `view` と `sampler` が `diffuse_texture` になるなど少し変わります。
 
 ```rust
 let diffuse_bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
@@ -514,10 +666,16 @@ let diffuse_bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
 });
 ```
 
+<!--
 The code should be working the same as it was before, but now have an easier way to create textures.
+-->
+このコードは、修正前のものと同様に動きますが、texture を作る方法が簡単になっています。
 
 ## Challenge
 
+<!--
 Create another texture and swap it out when you press the space key.
+-->
+もう一つ別の texture を作ってスペースキーで切り替えれるようにしてみましょう。
 
 <AutoGithubLink/>
