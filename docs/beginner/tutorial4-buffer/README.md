@@ -437,7 +437,9 @@ Self {
 }
 ```
 
+<!--
 All we have to do now is update the `render()` method to use the `index_buffer`.
+-->
 `render()` メソッドも `index_buffer` を使うよう修正するのが、今やらなければいけないすべてです。
 
 ```rust
