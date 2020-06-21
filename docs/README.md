@@ -1,8 +1,8 @@
 # Introduction
 
-このサイトは https://sotrh.github.io/learn-wgpu/ の非公式かつ個人的な和訳です。ゴールは Beginner までの和訳。
+このサイトは [https://sotrh.github.io/learn-wgpu/](https://sotrh.github.io/learn-wgpu/) の非公式かつ個人的な和訳です。ゴールは Beginner までの和訳。
 
-明白な誤りやご連絡は https://github.com/mitoma/learn-wgpu までどうぞ。
+明白な誤りやご連絡は [https://github.com/mitoma/learn-wgpu](https://github.com/mitoma/learn-wgpu) までどうぞ。
 
 <!--
 ## What is wgpu?
@@ -11,12 +11,12 @@
 <!--
 [Wgpu](https://github.com/gfx-rs/wgpu) is a Rust implementation of the [WebGPU API spec](https://gpuweb.github.io/gpuweb/). WebGPU is a specification published by the GPU for the Web Community Group. It aims to allow web code access to GPU functions in a safe and reliable manner. It does this by mimicking the Vulkan API, and translating that down to whatever API the host hardware is using (ie. DirectX, Metal, Vulkan).
 -->
-[Wgpu](https://github.com/gfx-rs/wgpu) は WebGPU API spec の Rust　実装です。WebGPU は GPU のための Web Community Group によって策定されています。これは GPU の機能を安全かつマナーを守って Web のコードからアクセスできるようにすることを狙いとしています。WebGPU は Valkan API を似せて実装されておりホストマシンの使っているハードウェア(DirectX, Metal, Valkan)に向けて翻訳されます。
+[wgpu](https://github.com/gfx-rs/wgpu) は [WebGPU API spec](https://gpuweb.github.io/gpuweb/) の Rust 実装です。WebGPU は GPU のための Web Community Group によって策定されています。これは GPU の機能を安全かつマナーを守って Web のコードからアクセスできるようにすることを狙いとしています。WebGPU は Valkan API を似せて実装されておりホストマシンの使っているハードウェア(DirectX, Metal, Valkan)に向けて翻訳されます。
 
 <!--
 Wgpu is still in development, so some of this doc is subject to change.
 -->
-Wgpu はまだ開発中なので、いくつかのドキュメントは変更される可能性があります。
+wgpu はまだ開発中なので、いくつかのドキュメントは変更される可能性があります。
 
 <!--
 ## Why Rust?
