@@ -1,8 +1,14 @@
 # Model Loading
 
+<!--
 Up to this point we've been creating our models manually. While this is an acceptable way to do this, but it's really slow if we want to include complex models with lots of polygons. Because of this, we're going modify our code to leverage the obj model format so that we can create a model in a software such as blender and display it in our code.
+-->
+ここまでは、モデルを手動で作成していました。今まではそれでよかったですが、これはもし複雑なモデルをたくさんのポリゴンで作ろうとするには非常に遅いです。そういうわけなので、ソフトウェアをオブジェクトのフォーマットをブレンダーのようなソフトで作ったモデルのようにし、私たちのコードで表示するように修正します。
 
+<!--
 Our `main.rs` file is getting pretty cluttered, let's create a `model.rs` file that we can put our model loading code into.
+-->
+`main.rs` ファイルは非常に雑然としているので `model.rs` ファイルを作りモデルをロードするためのコードを入れましょう。
 
 ```rust
 // model.rs
@@ -25,11 +31,20 @@ impl Vertex for ModelVertex {
 }
 ```
 
+<!--
 You'll notice a couple of things here. In `main.rs` we had `Vertex` as a struct, here we're using a trait. We could have multiple vertex types (model, UI, instance data, etc.). Making `Vertex` a trait will allow us to abstract our the `VertexBufferDescriptor` creation code to make creating `RenderPipeline`s simpler.
+-->
+このコードを見て二つのことに気づくでしょう。`main.rs` では `Vertex` は構造体でしたがここでは trait を使っています。これにより複数の vertex type (model, UI, インスタンスデータ, など)を扱うことができます。`Vertex` trait は `VertexBufferDescriptor` を作れるようにすることで `RenderPipeline` をシンプルにしましょう。
 
+<!--
 Another thing to mention is the `normal` field in `ModelVertex`. We won't use this until we talk about lighting, but will add it to the struct for now.
+-->
+別の点として `normal` field を `ModelVertex` に追加しました。これはライティングの項目に行くまで使いませんが、ここで追加しておきます。
 
+<!--
 Let's define our `VertexBufferDescriptor`.
+-->
+`VertexBufferDescriptor` を定義していきましょう。
 
 ```rust
 impl Vertex for ModelVertex {
@@ -60,7 +75,10 @@ impl Vertex for ModelVertex {
 }
 ```
 
+<!--
 This is basically the same as the original `VertexBufferDescriptor`, but we added a `VertexAttributeDescriptor` for the `normal`. Remove the `Vertex` struct in `main.rs` as we won't need it anymore, and use our new `Vertex` from model for the `RenderPipeline`.
+-->
+これは基本的にはオリジナルの `VertexBufferDescriptor` と同じですが、`normal` のための `VertexAttributeDescriptor` を追加しています。不要になった `Vertex` 構造体を `main.rs` から削除して、新しい `Vertex` を `RenderPipeline` に使います。
 
 ```rust
 let render_pipeline = device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
@@ -73,9 +91,15 @@ let render_pipeline = device.create_render_pipeline(&wgpu::RenderPipelineDescrip
 });
 ```
 
+<!--
 With all that in place we need a model to render. If you have one already that's great, but I've supplied a [zip file](https://github.com/sotrh/learn-wgpu/blob/master/code/beginner/tutorial9-models/src/res/cube.zip) with the model and all of it's textures. We're going to put this model in a new `res` folder.
+-->
+すべてが整うと、レンダリングのためにモデルが必要になります。もしすでに持っていれば素晴らしいことですが、なければ [zip file](https://github.com/sotrh/learn-wgpu/blob/master/code/beginner/tutorial9-models/src/res/cube.zip) でモデルとテクスチャを用意してあります。`res` フォルダにモデルを置きましょう。
 
+<!--
 Speaking of textures, let's add a `load()` method to `Texture` in `texture.rs`.
+-->
+テクスチャについてですが、`load()` メソッドを `texture.rs` の `Texture` に追加します。
 
 ```rust
 use std::path::Path;
@@ -85,6 +109,7 @@ pub fn load<P: AsRef<Path>>(
     path: P,
 ) -> Result<(Self, wgpu::CommandBuffer), failure::Error> {
     // Needed to appease the borrow checker
+    // これは borrow checker の警告を抑えるために必要になります。
     let path_copy = path.as_ref().to_path_buf();
     let label = path_copy.to_str();
     
@@ -93,9 +118,15 @@ pub fn load<P: AsRef<Path>>(
 }
 ```
 
+<!--
 The `load` method will be useful when we load the textures for our models, as `include_bytes!` requires that we know the name of the file at compile time which we can't really guarantee with model textures.
+-->
+`load` メソッドは私たちのモデルのテクスチャを読み込むときにとても役に立ちます。`include_bytes!` はコンパイル時にファイル名が必要になりますが、私たちはモデルのテクスチャが常にあることを保証はできません。
 
+<!--
 While we're at it let's import `texture.rs` in `model.rs`.
+-->
+では `texture.rs` を `model.rs` から読み込みましょう。
 
 ```rust
 use crate::texture;
@@ -104,7 +135,10 @@ use crate::texture;
 
 ## Loading models with TOBJ
 
+<!--
 We're going to use the [tobj](https://docs.rs/tobj/0.1.12/tobj/) library to load our model. Before we can load our model though, we need somewhere to put it.
+-->
+ここではモデルを読み込むために [tobj](https://docs.rs/tobj/0.1.12/tobj/) ライブラリを使います。私たちのモデルを読み込む前に、いくつかコードに追加が必要です。
 
 ```rust
 // model.rs
@@ -114,7 +148,10 @@ pub struct Model {
 }
 ```
 
+<!--
 You'll notice that our `Model` struct has a `Vec` for the `meshes`, and for `materials`. This is important as our obj file can include multiple meshes and materials. We still need to create the `Mesh` and `Material` classes, so let's do that.
+-->
+`Model` 構造体に `Vec` の `meshes` と `materials` があることに気づくでしょう。これはオブジェクトファイルに複数の meshes と materials が含まれているため非常に重要です。`Mesh` と `Material` クラスも以下のように作る必要があります。
 
 ```rust
 pub struct Material {
@@ -131,11 +168,20 @@ pub struct Mesh {
 }
 ```
 
+<!--
 The `Material` is pretty simple, it's just the name and one texture. Our cube obj actually has 2 textures, but one is a normal map, and we'll get to those [later](../../intermediate/normal-mapping). The name is more for debugging purposes.
+-->
+`Material` はとてもシンプルで、名前とテクスチャだけです。私たちの Cube obj は実際に 2 つのテクスチャしかありませんが、一つは normal マップで、それは[後々](../../intermediate/normal-mapping)使います。name は多くの場合デバッグ目的のものです。
 
+<!--
 `Mesh` holds a vertex buffer, an index buffer, and the number of indices in the mesh. We're using an `usize` for the material. This `usize` will be used to index the `materials` list when it comes time to draw.
+-->
+`Mesh` は頂点バッファ、インデックスバッファ、メッシュ内のインデックスの数を持ちます。material には `usize` を使います。この `usize` は `matelials` のリストのインデックスとして描画時に使われます。
 
+<!--
 With all that out of the way, we can get to loading our model.
+-->
+これでモデルのロードに取り掛かることができます。
 
 ```rust
 impl Model {
@@ -147,9 +193,11 @@ impl Model {
         let (obj_models, obj_materials) = tobj::load_obj(path.as_ref())?;
 
         // We're assuming that the texture files are stored with the obj file
+        // texture file は obj file と一緒に保存されていると仮定している。
         let containing_folder = path.as_ref().parent().unwrap();
 
         // Our `Texure` struct currently returns a `CommandBuffer` when it's created so we need to collect those and return them.
+        // `Texture` 構造体は作成時に `CommandBuffer` を返すようになっているので、それらを集めて返す必要があります。
         let mut command_buffers = Vec::new();
 
         let mut materials = Vec::new();
@@ -222,7 +270,10 @@ impl Model {
 }
 ```
 
+<!--
 Make sure that you change the `IndexFormat` that the `RenderPipeline` uses from `Uint16` to `Uint32`. Tobj stores the indices as `u32`s, so using a lower bit stride will result in your model getting mangled.
+-->
+`RenderPipeline` が `Uint16` から `Uint32` に `IndexFormat` を変更します。Tobj はインデックスを u32 で保存しているので少ないビット数で扱うとモデルがめちゃくちゃになってしまうからです。
 
 ```rust
 let render_pipeline = device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
@@ -236,7 +287,10 @@ let render_pipeline = device.create_render_pipeline(&wgpu::RenderPipelineDescrip
 
 ## Rendering a mesh
 
+<!--
 Before we can draw the model, we need to be able to draw an individual mesh. Let's create a trait called `DrawModel`, and implement it for `RenderPass`.
+-->
+モデルを描画する前に、独立したメッシュを描画できるようにする必要があります。`DrawModel` と呼ばれる trait を作成し、`RenderPass` に実装しましょう。
 
 ```rust
 pub trait DrawModel<'a, 'b>
@@ -270,7 +324,10 @@ where
 }
 ```
 
+<!--
 We could have put this methods in `impl Model`, but I felt it made more sense to have the `RenderPass` do all the rendering, as that's kind of it's job. This does mean we have to import `DrawModel` when we go to render though.
+-->
+このメソッドを `impl Model` に実装することもできますが、`RenderPass` にすべてレンダリングさせるほうが理にかなっていると感じました。これは render するときに `DrawModel` を import する必要があることを意味しています。
 
 ```rust
 // main.rs
@@ -282,7 +339,10 @@ use model::DrawModel;
 render_pass.draw_mesh_instanced(&self.obj_model.meshes[0], 0..self.instances.len() as u32);
 ```
 
+<!--
 Before that though we need to actually load the model and save it to `State`. Put the following in `State::new()`.
+-->
+それを行う前に、実際にモデルをロードして `State` に保存しなければいけません。`State::new()` に以下を追加しましょう。
 
 ```rust
 let (obj_model, cmds) = model::Model::load(
@@ -292,9 +352,15 @@ let (obj_model, cmds) = model::Model::load(
 ).unwrap();
 ```
 
+<!--
 The path to the obj will be different for you, so keep that in mind.
+-->
+obj の path はもしかしたらあなたの環境では異なるかもしれないことを気に留めておいてください。
 
+<!--
 Our new model is a bit bigger than our previous one so we're gonna need to adjust the spacing on our instances a bit.
+-->
+新しいモデルは私たちの前のものよりもわずかに大きいので、幅を合わせが必要になります。
 
 ```rust
 const SPACE_BETWEEN: f32 = 3.0;
@@ -318,18 +384,33 @@ let instances = (0..NUM_INSTANCES_PER_ROW).flat_map(|z| {
 }).collect::<Vec<_>>();
 ```
 
+<!--
 With all that done, you should get something like this.
+-->
+すべて終わると以下のようになるでしょう。
 
 ![cubes.png](./cubes.png)
 
+<!--
 ## Using the correct textures
+-->
+## 正しい Texture を使う
+<!--
 If you look at the texture files for our obj, you'll see that they don't match up to our obj. The texture we want to see is this one,
+-->
+もし obj の texture file を見たら、 obj とあっていないように感じるでしょう。私たちは以下のようなテクスチャを使いたいはずです。
 
 ![cube-diffuse.jpg](./cube-diffuse.jpg)
 
+<!--
 but we're still getting our happy tree texture.
+-->
+しかし、まだハッピーな木のテクスチャを使っています。
 
+<!--
 The reason for this is quite simple. Though we've created our textures we haven't created a bind group to give to the `RenderPass`. We're still using our old `diffuse_bind_group`. If we want to change that we need to create a bind group for our materials. Add a `bind_group` field to `Material`.
+-->
+この理由は簡単です。私たちは `RenderPass` の bind group に texture を作っていないからです。私たちはまだ古い `diffuse_bind_group` を使っています。もし、これを変えたければ bind group を material を使うようにしなければいけません。`Material` に `bind_group` フィールドを追加しましょう。
 
 ```rust
 pub struct Material {
@@ -339,7 +420,10 @@ pub struct Material {
 }
 ```
 
+<!--
 We're going to add a material parameter to `DrawModel`.
+-->
+`DrawModel` に matelial parameter を追加しましょう。
 
 ```rust
 pub trait DrawModel<'a, 'b>
@@ -381,7 +465,10 @@ where
 }
 ```
 
+<!--
 We need to change the render code to reflect this.
+-->
+render するコードにもこれを反映します。
 
 ```rust
 render_pass.set_pipeline(&self.render_pipeline);
@@ -391,19 +478,28 @@ let material = &self.obj_model.materials[mesh.material];
 render_pass.draw_mesh_instanced(mesh, material, 0..self.instances.len() as u32, &self.uniform_bind_group);
 ```
 
+<!--
 We also need to make a subtle change on `from_image()` method in `texture.rs`. PNGs work fine with `as_rgba8()`, as they have an alpha channel. But, JPEGs don't have an alpha channel, and the code would panic if we try to call `as_rgba8()` on the JPEG texture image we are going to use. Instead, we can use `to_rgba()` to handle such an image.
+-->
+`texture.rs` の `from_image()` にもわずかな変更が必要です。PNG はアルファチャネルを持つので `as_rgba8()` でいい感じに動きます。しかし JPEG はアルファチャネルを持たないので JPEG のテクスチャ画像で `as_rgba8()` を呼び出すとパニックを起こします。代わりに `to_rgba()` をそれらのイメージについては呼び出してやります。
 
 ```rust
 let rgba = img.to_rgba(); 
 ```
 
+<!--
 With all that in place we should get the following.
+-->
+すべてを行うと以下のようになります。
 
 ![cubes-correct.png](./cubes-correct.png)
 
 ## Rendering the entire model
 
+<!--
 Right now we are specifying the mesh and the material directly. This is useful if we want to draw a mesh with a different material. We're also not rendering other parts of the model (if we had some). Let's create a method for `DrawModel` that will draw all the parts of the model with their respective materials.
+-->
+今は mesh と material を直接指定しています。別の素材でメッシュを描きたい場合に便利です。別パーツのモデルを描画するということもまだやっていません(もしそれらがあったとしても)。モデルのすべてのパーツをそれぞれのマテリアルで描画するような `DrawModel` のメソッドを作成してみましょう。
 
 ```rust
 pub trait DrawModel<'a, 'b>
@@ -442,7 +538,10 @@ where
 }
 ```
 
+<!--
 The code in `main.rs` will change accordingly.
+-->
+`main.rs` のコードを適切に変更します。
 
 ```rust
 render_pass.set_pipeline(&self.render_pipeline);
