@@ -229,15 +229,19 @@ We call this method in `main()` in the event loop for the following events.
 match event {
     // ...
 
-    WindowEvent::Resized(physical_size) => {
-        state.resize(*physical_size);
-    }
-    WindowEvent::ScaleFactorChanged { new_inner_size, .. } => {
-        // new_inner_size is &mut so w have to dereference it twice
-        // 新しい内部サイズは &mut なので二回 deref します。(訳者: なぜだろう？)
-        state.resize(**new_inner_size);
-    }
-    // ...
+    } if window_id == window.id() => if !state.input(event) {
+        match event {
+            // ...
+
+            WindowEvent::Resized(physical_size) => {
+                state.resize(*physical_size);
+            }
+            WindowEvent::ScaleFactorChanged { new_inner_size, .. } => {
+                // new_inner_size is &mut so we have to dereference it twice
+                // new_inner_size は &mut なので二回 deref します。(訳者: なぜだろう？)
+                state.resize(**new_inner_size);
+            }
+            // ...
 }
 ```
 

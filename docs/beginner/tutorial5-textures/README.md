@@ -87,12 +87,12 @@ let buffer = device.create_buffer_with_data(
 ```
 
 <!--
-We specified our `diffuse_buffer` to be `COPY_SRC` so that we can copy it to our `diffuse_texture`. We preform the copy using a `CommandEncoder`. We'll need to change `queue`'s mutablility so we can submit the resulting `CommandBuffer`.
+We specified our `diffuse_buffer` to be `COPY_SRC` so that we can copy it to our `diffuse_texture`. We preform the copy using a `CommandEncoder`.
 -->
-`diffuse_buffer` を `diffuse_texture` にコピーできるように `COPY_SRC` を明示しました。copy は `CommandEncoder` で行います。`CommandBuffer` の結果を submit するために`queue` の mutability を変更します。
+`diffuse_buffer` を `diffuse_texture` にコピーできるように `COPY_SRC` を明示しました。copy は `CommandEncoder` で行います。
 
 ```rust
-let (device, mut queue) = // ...
+let (device, queue) = // ...
 
 // ...
 
@@ -124,9 +124,9 @@ queue.submit(&[encoder.finish()]);
 -->
 
 <!--
-Now that our texture has data in it, we need a way to use it. This is where a `TextureView` and a `Sampler`. A `TextureView` offers us a *view* into our texture. A `Sampler` controls how the `Texture` is *sampled*. Sampling works similar to the eyedropper tool in Gimp/Photoshop. Our program supplies a coordinate on the texture (known as a texture coordinate), and the sampler then returns a color back based on it's internal parameters.
+Now that our texture has data in it, we need a way to use it. This is where a `TextureView` and a `Sampler` come in. A `TextureView` offers us a *view* into our texture. A `Sampler` controls how the `Texture` is *sampled*. Sampling works similar to the eyedropper tool in Gimp/Photoshop. Our program supplies a coordinate on the texture (known as a texture coordinate), and the sampler then returns a color back based on it's internal parameters.
 -->
-これで texture はデータを持つようになりましたので、使い方が必要です。`TextureView` と `Sampler` というものがあります。 `TextureView` は texture のビューを提供します。`Sampler` は `Texture` のサンプリングの仕方をコントロールします。サンプリングは Gimp や Photoshop のスポイトツールのような役割を果たします。プログラムは与えられたテクスチャ上の座標(テクスチャ座標と言われる)を提供し、`Sampler` はその内部パラメータに基づいて色を返します。
+これで texture はデータを持つようになりましたので、使い方が必要です。`TextureView` と `Sampler` というものの出番です。 `TextureView` は texture のビューを提供します。`Sampler` は `Texture` のサンプリングの仕方をコントロールします。サンプリングは Gimp や Photoshop のスポイトツールのような役割を果たします。プログラムは与えられたテクスチャ上の座標(テクスチャ座標と言われる)を提供し、`Sampler` はその内部パラメータに基づいて色を返します。
 
 <!--
 Let's define our `diffuse_texture_view` and `diffuse_sampler` now.
@@ -464,10 +464,9 @@ If we run our program now we should get the following result.
 ![an upside down tree on a hexagon](./upside-down.png)
 
 <!--
-That's weird, our tree is upside down! This is because wgpu's coordinate system has positive y values going down while texture coords have y as up.
+That's weird, our tree is upside down! This is because wgpu's world coordinates have the y-axis pointing up, while texture coordinates have the y-axis pointing down. In other words, (0, 0) in texture coordinates coresponds to the top-left of the image, while (1, 1) is the bottom right.
 -->
-
-何たる運命、我らの木はひっくり返ったぞ！これは wgpu の座標系はテクスチャ座標のY座標が上がると実際のY座標が下がるからです。
+何たる運命、我らの木はひっくり返ったぞ！これは wgpu のワールド座標系は y 軸を向いているのに対してテクスチャ座礁系の y 軸は下を向いているからです。別の言葉で言い換えると、テクスチャ座標系の(0, 0)は画像の左上を指し、(1, 1)は右下を指します。
 
 ![happy-tree-uv-coords.png](./happy-tree-uv-coords.png)
 
@@ -534,7 +533,7 @@ impl Texture {
         Self::from_image(device, &img, Some(label))
     }
 
-    pub fn from_image(device: &wgpu::Device, img: &image::DynamicImage) -> Result<(Self, wgpu::CommandBuffer), failure::Error> {
+    pub fn from_image(device: &wgpu::Device, img: &image::DynamicImage, label: Option<&str>) -> Result<(Self, wgpu::CommandBuffer), failure::Error> {
         let rgba = img.as_rgba8().unwrap();
         let dimensions = img.dimensions();
 
@@ -601,10 +600,10 @@ impl Texture {
 
 <!--
 1. We're using the [failure](https://docs.rs/failure/0.1.6/failure/) crate to simplify error handling.
-2. In order to prevent importing `queue` as `&mut`, we're returning a `CommandBuffer` with our texture. This means we could load multiple textures at the same time, and then submit all there command buffers at once.
+2. We're returning a `CommandBuffer` with our texture. This means we could load multiple textures at the same time, and then submit all there command buffers at once.
 -->
 1. [failure](https://docs.rs/failure/0.1.6/failure/) crate を error handling を簡単にするために使っています。
-2. `queue` を `&mut` で import するのを避けるためにテクスチャを `CommandBuffer` として返します。これは複数のテクスチャを同時にロードし、複数の command buffer の submit を一度に行えるということを意味しています。
+2. テクスチャを `CommandBuffer` として返します。これは複数のテクスチャを同時にロードし、複数の command buffer の submit を一度に行えるということを意味しています。
 
 <!--
 We need to import `texture.rs` as a module, so somewhere at the top of `main.rs` add the following.
@@ -639,7 +638,7 @@ texture を作るコードを `new()` に入れるのはとてもシンプルで
 
 ```rust
 let diffuse_bytes = include_bytes!("happy-tree.png");
-let (diffuse_texture, cmd_buffer) = texture::Texture::from_bytes(&device, diffuse_bytes).unwrap();
+let (diffuse_texture, cmd_buffer) = texture::Texture::from_bytes(&device, diffuse_bytes, "happy-tree.png").unwrap();
 
 queue.submit(&[cmd_buffer]);
 ```

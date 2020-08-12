@@ -53,7 +53,7 @@ The `build_view_projection_matrix` is where the magic happens.
 3. wgpu の座標系は DirectX や Metal の座標系がベースになっています。これはX軸とY軸は -1.0 から 1.0 の範囲、Z軸は0.0から1.0の範囲で[デバイスの座標系をノーマライズする](https://github.com/gfx-rs/gfx/tree/master/src/backend/dx12#normalized-coordinates)ことを意味しています。`cgmath` crate (そして同様に多くのゲーム用数学 crate) は OpenGL の座標系をもとに作られています。この行列は OpenGL の座標系で設定されたシーンを wgpu の座標系に変換します。その定義は以下です。
 
 ```rust
-#[cfg_attr(rustfmt, rustfmt_skip)]
+#[rustfmt::skip]
 pub const OPENGL_TO_WGPU_MATRIX: cgmath::Matrix4<f32> = cgmath::Matrix4::new(
     1.0, 0.0, 0.0, 0.0,
     0.0, 1.0, 0.0, 0.0,
@@ -389,23 +389,39 @@ impl CameraController {
 
     fn update_camera(&self, camera: &mut Camera) {
         use cgmath::InnerSpace;
-        let forward = (camera.target - camera.eye).normalize();
+        let forward = camera.target - camera.eye;
+        let forward_norm = forward.normalize();
+        let forward_mag = forward.magnitude();
 
-        if self.is_forward_pressed {
-            camera.eye += forward * self.speed;
+        // Prevents glitching when camera gets too close to the
+        // center of the scene.
+        // カメラがシーンの中心にあまりに近寄ってグリッチが発生するのを避ける。
+        if self.is_forward_pressed && forward_mag > self.speed {
+            camera.eye += forward_norm * self.speed;
         }
         if self.is_backward_pressed {
-            camera.eye -= forward * self.speed;
+            camera.eye -= forward_norm * self.speed;
         }
 
-        let right = forward.cross(camera.up);
+        let right = forward_norm.cross(camera.up);
+
+        // Redo radius calc in case the up/ down is pressed.
+        // up / down が押されたときは角度を再計算する
+        let forward = camera.target - camera.eye;
+        let forward_mag = forward.magnitude();
 
         if self.is_right_pressed {
-            camera.eye += right * self.speed;
+            // Rescale the distance between the target and eye so 
+            // that it doesn't change. The eye therefore still 
+            // lies on the circle made by the target and eye.
+            // 対象と視点の間の距離が変わらないよう、スケールを変更します。
+            // 視点は視点と対象が作った円の上にあります。
+            camera.eye = camera.target - (forward + right * self.speed).normalize() * forward_mag;
         }
         if self.is_left_pressed {
-            camera.eye -= right * self.speed;
+            camera.eye = camera.target - (forward - right * self.speed).normalize() * forward_mag;
         }
+    }
     }
 }
 ```

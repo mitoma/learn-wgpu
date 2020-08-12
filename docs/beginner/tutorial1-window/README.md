@@ -26,10 +26,20 @@ wgpu = "0.5.0"
 futures = "0.3.4"
 ```
 
+### Vulkan Portability Layer
+
 <!--
-If you're on MacOS, you can specify Vulkan (MoltenVK) as your desired backend instead of Metal by removing the `wgpu = "0.5.0"` and adding the following.
+You may also want to make the Vulkan backend available on platforms where it is by default not, e.g. Mac OS. The reason
+you might want to enable the Vulkan backend is if you are doing cross-platform development and you need the
+Vulkan validation layers output. 
 -->
-もしあなたが MacOS を使っていて明示的に Metals の代わりに Valkan (MoltenVK) を指定したければ `wgpu = "0.5.0"` を削除して以下の行を追加してください。
+もしかすると Vulkan backend がデフォルトで有効でない環境(例えば Mac OS などで) Vulkan backend を利用したいかもしれません。その理由は cross-platform 開発で Vulkan validation layers の出力が必要で Vulkan backend を有効にしたいからということもあります。
+
+<!--
+To enable the Vulkan backend, add this new section to `Cargo.toml`, and do not forget to remove `wgpu` from the earlier
+`[dependencies]` section.
+-->
+Vulkan backend を有効にするには、 `Cargo.toml` に新しいセクションを追加し、忘れずに `wgpu` を最初の `[dependencies]` セクションから削除してください。
 
 ``` toml
 [dependencies.wgpu]
@@ -37,6 +47,15 @@ version = "0.5.0"
 features = ["vulkan"]
 ```
 
+<!--
+- This may not be necessary because normally `wgpu-rs` validation will catch problems. In fact that is one of it's
+  design goals.
+- This is not intended for shipping code. 
+- See also [gfx-portability](https://github.com/gfx-rs/portability).
+-->
+- これはもしかしたら不要かもしれません。というのも通常 `wgpu-rs` の validation は問題を補足します。実際、それは `wgpu-rs` の設計のゴールの一つです。
+- この example はリリースすることが意図されたコードではありません。
+- [gfx-portability](https://github.com/gfx-rs/portability) も参照しておいてください。
 
 ## The code
 <!--

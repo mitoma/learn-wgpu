@@ -1,7 +1,7 @@
 # Instancing
 
 <!--
-Up to this point we've been drawing just one object. Most games have hundreds of objects on screen at the same time. If we wanted to draw multiple instances of our model, we could copy the vertex buffer and modify it's vertices to be in the right place, but this would be hilariously inefficient. We have our model, and we now how to position it in 3d space with a matrix, like we did the camera, so all we have to do is change the matrix we're using when we draw.
+Up to this point we've been drawing just one object. Most games have hundreds of objects on screen at the same time. If we wanted to draw multiple instances of our model, we could copy the vertex buffer and modify it's vertices to be in the right place, but this would be hilariously inefficient. We have our model, and we know how to position it in 3d space with a matrix, like we did the camera, so all we have to do is change the matrix we're using when we draw.
 -->
 この時点で、一つのオブジェクトを描くことができるようになりました。ほとんどのゲームは何百ものオブジェクトを同時にスクリーンに出します。もし、一つのモデルから複数のインスタンスを描画したいなら、頂点バッファをコピーして座標を別の場所に変えればよいですが、それは滑稽なほど非効率です。モデルがあれば、カメラでやったように三次元空間上にどこに置けばいいか示す行列があれば、マトリクスを変更してもう一度描画すればいいだけです。
 
@@ -324,9 +324,9 @@ A storage buffer gives us the flexibility that arrays did not. We don't have to 
 storage buffer は配列にはない柔軟性を与えてくれます。shader にサイズを明示する必要はありませんし、生成時に `Vec` を使うことができます。
 
 <!--
-Since we're using `bytemuck` for casting our data to `&[u8]`, we're going to need to define a custom scruct to store the `cgmath::Matrix4`s. We need to do this because we can't implement `bytemuck::Pod`, and `bytemuck::Zeroable`, on `cgmath::Matrix4` because we don't that type.
+Since we're using `bytemuck` for casting our data to `&[u8]`, we're going to need to define a custom scruct to store the `cgmath::Matrix4`s. We need to do this because we can't implement `bytemuck::Pod`, and `bytemuck::Zeroable`, on `cgmath::Matrix4` as it is an external type.
 -->
-`&[u8]` にデータをキャストするときに `bytemuck` を使っているので、 `cgmath::Matrix4` を格納するために私たちはカスタム構造体を定義する必要があります。なぜなら、 `mytemuck::Pod` と `bytemuck::Zeroable` は `cgmath::Matrix4` に実装することができないからで、その型を使えないからです。
+`&[u8]` にデータをキャストするときに `bytemuck` を使っているので、 `cgmath::Matrix4` を格納するために私たちはカスタム構造体を定義する必要があります。なぜなら、 `mytemuck::Pod` と `bytemuck::Zeroable` は `cgmath::Matrix4` に実装することができないからで、その型は外部の型だからです。
 
 ```rust
 // UPDATED!
