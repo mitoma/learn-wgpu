@@ -336,12 +336,13 @@ let render_pipeline_layout = device.create_pipeline_layout(&wgpu::PipelineLayout
 
 <!--
 ## A change to the VERTICES
+
 -->
 ## VERTICES を変更します。
 <!--
-There's a few things we need to change about our `Vertex` definition. Up to now we've been using a `color` attribute to dictate the color of our mesh. Now that we're using a texture we want to replace our `color` with `tex_coords`.
+There's a few things we need to change about our `Vertex` definition. Up to now we've been using a `color` attribute to dictate the color of our mesh. Now that we're using a texture we want to replace our `color` with `tex_coords`, which is only two floats instead of three.
 -->
-`Vertex` の定義を少し変更する必要があります。今まで `color` attribute で mesh の色を決定していました。texture を使いたいので `color` を `tex_coords` に置き換えましょう。
+`Vertex` の定義を少し変更する必要があります。今まで `color` attribute で mesh の色を決定していました。texture を使いたいので `color` を `tex_coords` に置き換えましょう。float の値も 3 つから 2 つになります。
 
 ```rust
 #[repr(C)]
@@ -360,27 +361,10 @@ We need to reflect these changes in the `VertexBufferDescriptor`.
 ```rust
 impl Vertex {
     fn desc<'a>() -> wgpu::VertexBufferDescriptor<'a> {
-        use std::mem;
         wgpu::VertexBufferDescriptor {
-            stride: mem::size_of::<Vertex>() as wgpu::BufferAddress,
+            stride: std::mem::size_of::<Vertex>() as wgpu::BufferAddress,
             step_mode: wgpu::InputStepMode::Vertex,
-            attributes: &[
-                wgpu::VertexAttributeDescriptor {
-                    offset: 0,
-                    shader_location: 0,
-                    format: wgpu::VertexFormat::Float3,
-                },
-                wgpu::VertexAttributeDescriptor {
-                    offset: mem::size_of::<[f32; 3]>() as wgpu::BufferAddress,
-                    shader_location: 1,
-                    // We only need to change this to reflect that tex_coords
-                    // is only 2 floats and not 3. It's in the same position
-                    // as color was, so nothing else needs to change
-                    // tex_coords は 2 要素の float で 3 要素ではないので変更はこれだけです。
-                    // color が同じポジションにあったのなら他の修正はありません。
-                    format: wgpu::VertexFormat::Float2,
-                },
-            ]
+            attributes: &wgpu::vertex_attr_array![0 => Float3, 1 => Float2],
         }
     }
 }
