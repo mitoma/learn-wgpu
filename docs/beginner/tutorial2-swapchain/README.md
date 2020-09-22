@@ -301,7 +301,7 @@ event_loop.run(move |event, _, control_flow| {
                 }
                 _ => {}
             } // <- remove the comma on this line (この行の最後のカンマは削除します)
-        } // <- Add a new closing brace for the if expression　(新しくifを閉じるbraceを追加しま
+        } // <- Add a new closing brace for the if expression　(新しくifを閉じるbraceを追加します)
         _ => {}
     }
 });
