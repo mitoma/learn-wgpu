@@ -154,9 +154,12 @@ Now that we have our data structured, let's make our `uniform_buffer`.
 let mut uniforms = Uniforms::new();
 uniforms.update_view_proj(&camera);
 
-let uniform_buffer = device.create_buffer_with_data(
-    bytemuck::cast_slice(&[uniforms]),
-    wgpu::BufferUsage::UNIFORM | wgpu::BufferUsage::COPY_DST,
+let uniform_buffer = device.create_buffer_init(
+    &wgpu::util::BufferInitDescriptor {
+        label: Some("Uniform Buffer"),
+        contents: bytemuck::cast_slice(&[uniforms]),
+        usage: wgpu::BufferUsage::UNIFORM | wgpu::BufferUsage::COPY_DST,
+    }
 );
 ```
 
@@ -169,13 +172,15 @@ Cool, now that we have a uniform buffer, what do we do with it? The answer is we
 
 ```rust
 let uniform_bind_group_layout = device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
-    bindings: &[
+    entries: &[
         wgpu::BindGroupLayoutEntry {
             binding: 0,
             visibility: wgpu::ShaderStage::VERTEX,
             ty: wgpu::BindingType::UniformBuffer {
                 dynamic: false,
+                min_binding_size: None,
             },
+            count: None,
         }
     ],
     label: Some("uniform_bind_group_layout"),
@@ -197,15 +202,10 @@ bind group が作れるようになりました。
 ```rust
 let uniform_bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
     layout: &uniform_bind_group_layout,
-    bindings: &[
-        wgpu::Binding {
+    entries: &[
+        wgpu::BindGroupEntry {
             binding: 0,
-            resource: wgpu::BindingResource::Buffer {
-                buffer: &uniform_buffer,
-                // FYI: you can share a single buffer between bindings.
-                // 補足: 一つの buffer を複数の binding で共有できます
-                range: 0..std::mem::size_of_val(&uniforms) as wgpu::BufferAddress,
-            }
+            resource: wgpu::BindingResource::Buffer(uniform_buffer.slice(..))
         }
     ],
     label: Some("uniform_bind_group"),
@@ -218,9 +218,16 @@ Like with our texture, we need to register our `uniform_bind_group_layout` with 
 texture の様に `uniform_bind_group_layout` を render pipeline に登録する必要があります。
 
 ```rust
-let render_pipeline_layout = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
-    bind_group_layouts: &[&texture_bind_group_layout, &uniform_bind_group_layout],
-});
+let render_pipeline_layout = device.create_pipeline_layout(
+    &wgpu::PipelineLayoutDescriptor {
+        label: Some("Render Pipeline Layout"),
+        bind_group_layouts: &[
+            &texture_bind_group_layout,
+            &uniform_bind_group_layout,
+        ],
+        push_constant_ranges: &[],
+    }
+);
 ```
 
 <!--
@@ -230,6 +237,7 @@ Now we need to add `uniform_buffer` and `uniform_bind_group` to `State`
 
 ```rust
 struct State {
+    // ...
     camera: Camera,
     uniforms: Uniforms,
     uniform_buffer: wgpu::Buffer,
@@ -244,7 +252,6 @@ async fn new(window: &Window) -> Self {
         uniforms,
         uniform_buffer,
         uniform_bind_group,
-        // ...
     }
 }
 ```
@@ -259,8 +266,8 @@ render_pass.set_pipeline(&self.render_pipeline);
 render_pass.set_bind_group(0, &self.diffuse_bind_group, &[]);
 // NEW!
 render_pass.set_bind_group(1, &self.uniform_bind_group, &[]);
-render_pass.set_vertex_buffer(0, &self.vertex_buffer, 0, 0);
-render_pass.set_index_buffer(&self.index_buffer, 0, 0);
+render_pass.set_vertex_buffer(0, &self.vertex_buffer.slice(..));
+render_pass.set_index_buffer(&self.index_buffer.slice(..));
 render_pass.draw_indexed(0..self.num_indices, 0, 0..1);
 ```
 
@@ -472,49 +479,33 @@ fn input(&mut self, event: &WindowEvent) -> bool {
 ```
 
 <!--
-Up to this point, the camera controller isn't actually doing anything. The values in our uniform buffer need to be updated. There are 2 main methods to do that.
+Up to this point, the camera controller isn't actually doing anything. The values in our uniform buffer need to be updated. There are a few main methods to do that.
 1. We can create a separate buffer and copy it's contents to our `uniform_buffer`. The new buffer is known as a staging buffer. This method is usually how it's done as it allows the contents of the main buffer (in this case `uniform_buffer`) to only be accessible by the gpu. The gpu can do some speed optimizations which it couldn't if we could access the buffer via the cpu.
 2. We can call on of the mapping method's `map_read_async`, and `map_write_async` on the buffer itself. These allow us to access a buffer's contents directly, but requires us to deal with the `async` aspect of these methods this also requires our buffer to use the `BufferUsage::MAP_READ` and/or `BufferUsage::MAP_WRITE`. We won't talk about it here, but you check out [Wgpu without a window](../../showcase/windowless) tutorial if you want to know more.
+3. We can use `write_buffer` on `queue`.
 -->
-この時点では、カメラコントローラーは実際には何もやりません。uniform buffer を更新する必要があります。変更には 2 つの主要な手法があります。
+この時点では、カメラコントローラーは実際には何もやりません。uniform buffer を更新する必要があります。変更にはいくつかの主要な手法があります。
 1. 別の buffer を作り、`uniform_buffer` の内容を複製します。新しい buffer は staging buffer として知られています。この手法は main buffer のコンテンツ(ここでは `uniform_buffer`)を GPU のみにアクセスできるようにします。GPU は CPU buffer にアクセスすることができないという制約の下で、いくつか速度的な最適化を行うことができます。
-2. もう一つの手法は buffer 自身を `map_read_async` や `map_write_async` として mapping します。これは buffer のコンテンツに直接のアクセスを許可しますが、代わりに async でそれらのメソッドを扱う必要があり buffer にも `BufferUsage::MAP_READ` や `BufferUsage::MAP_WRITE` が指定する必要があります。ここではそれらについて話しませんが [Wgpu without a window](../../showcase/windowless) というチュートリアルをすれば多くのことが知れるでしょう。
+2. もう一つの手法は buffer 自身を `map_read_async` や `map_write_async` として mapping します。これは buffer のコンテンツに直接のアクセスを許可しますが、代わりに async でそれらのメソッドを扱う必要があり buffer にも `BufferUsage::MAP_READ` や `BufferUsage::MAP_WRITE` が指定する必要があります。ここではそれらについて話しませんが [Wgpu without a window](../../showcase/windowless) というチュートリアルをチェックすると多くのことがわかるでしょう。
+3. `queue` で `write_buffer` を使うことができます。
 
 <!--
-Enough about that though, let's get into actually implementing the code.
+We're going to use option number 3.
 -->
-説明はこれで十分なので実際にコードを実装してみましょう。
+ここでは三つ目の選択肢を見ていきましょう。
 
 ```rust
 fn update(&mut self) {
     self.camera_controller.update_camera(&mut self.camera);
     self.uniforms.update_view_proj(&self.camera);
-
-    // Copy operation's are performed on the gpu, so we'll need
-    // a CommandEncoder for that
-    // Copy 操作は GPU で行われるので CommandEncoder が必要です。
-    let mut encoder = self.device.create_command_encoder(&wgpu::CommandEncoderDescriptor {
-        label: Some("update encoder"),
-    });
-
-    let staging_buffer = self.device.create_buffer_with_data(
-        bytemuck::cast_slice(&[self.uniforms]),
-        wgpu::BufferUsage::COPY_SRC,
-    );
-
-    encoder.copy_buffer_to_buffer(&staging_buffer, 0, &self.uniform_buffer, 0, std::mem::size_of::<Uniforms>() as wgpu::BufferAddress);
-
-    // We need to remember to submit our CommandEncoder's output
-    // otherwise we won't see any change.
-    // CommandEncoder の submit を忘れないようにしないと、変更が見れなくなります。
-    self.queue.submit(&[encoder.finish()]);
+    self.queue.write_buffer(&self.uniform_buffer, 0, bytemuck::cast_slice(&[self.uniforms]));
 }
 ```
 
 <!--
 That's all we need to do. If you run the code now you should see a pentagon with our tree texture that you can rotate around and zoom into with the wasd/arrow keys.
 -->
-これでに必要なことはすべてです。このコードを実行すると木のテクスチャの五角形を WASD キーや矢印キーで回したりズームすることができます。
+これで必要なことはすべてです。このコードを実行すると木のテクスチャの五角形を WASD キーや矢印キーで回したりズームすることができます。
 
 ## Challenge
 
@@ -524,10 +515,3 @@ Have our model rotate on it's own independently of the the camera. *Hint: you'll
 モデルをカメラとは独立して回転させてみましょう。ヒント：カメラとは別の行列が必要になるでしょう。
 
 <AutoGithubLink/>
-
-<!-- TODO: add a gif/video for this -->
-
-<!--
-[ThinMatrix](https://www.youtube.com/watch?v=DLKN0jExRIM)
-http://antongerdelan.net/opengl/raycasting.html
--->

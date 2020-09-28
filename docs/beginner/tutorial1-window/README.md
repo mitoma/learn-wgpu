@@ -24,6 +24,8 @@ image = "0.23"
 winit = "0.22"
 shaderc = "0.6"
 cgmath = "0.17"
+env_logger = "0.7"
+log = "0.4"
 wgpu = "0.6"
 futures = "0.3"
 ```
@@ -73,6 +75,7 @@ use winit::{
 };
 
 fn main() {
+    env_logger::init();
     let event_loop = EventLoop::new();
     let window = WindowBuilder::new()
         .build(&event_loop)

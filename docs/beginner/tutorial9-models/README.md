@@ -79,45 +79,42 @@ let render_pipeline = device.create_render_pipeline(&wgpu::RenderPipelineDescrip
 ```
 
 <!--
-With all that in place we need a model to render. If you have one already that's great, but I've supplied a [zip file](https://github.com/sotrh/learn-wgpu/blob/master/code/beginner/tutorial9-models/src/res/cube.zip) with the model and all of it's textures. We're going to put this model in a new `res` folder.
+With all that in place we need a model to render. If you have one already that's great, but I've supplied a [zip file](https://github.com/sotrh/learn-wgpu/blob/master/code/beginner/tutorial9-models/src/res/cube.zip) with the model and all of it's textures. We're going to put this model in a new `res` folder next to the existing `src` folder.
 -->
 すべてが整うと、レンダリングのためにモデルが必要になります。もしすでに持っていれば素晴らしいことですが、なければ [zip file](https://github.com/sotrh/learn-wgpu/blob/master/code/beginner/tutorial9-models/src/res/cube.zip) でモデルとテクスチャを用意してあります。`res` フォルダにモデルを置きましょう。
 
+## Accessing files in the res folder
+
 <!--
-Speaking of textures, let's add a `load()` method to `Texture` in `texture.rs`.
+When cargo builds and runs our program it sets what's known as the current working directory. This directory is usually the folder containing your projects root `Cargo.toml`. The path to our res folder may differ depending on the structure of the project. In the `res` folder for the example code for this section tutorial is at `code/beginner/tutorial9-models/res/`. When loading our model we could use this path, and just append `cube.obj`. This is fine, but if we change our projects structure, our code will break.
 -->
-テクスチャについてですが、`load()` メソッドを `texture.rs` の `Texture` に追加します。
+cargo でプログラムをビルドしたり実行するとき、現在の作業ディレクトリがセットされます。このディレクトリはたいていプロジェクトルートの `Cargo.toml` のあるフォルダです。リソースフォルダのパスは、もしかするとプロジェクトの構成に依存して異なる場所にあるかもしれません。このセクションのチュートリアル例では `res` フォルダは `code/beginner/tutorial9-models/res/` です。モデルをロードするとき、このパスに `cube.obj` を追加して使います。これは分かりやすいですがプロジェクトの構成を変えたとき、コードが壊れてしまいます。
+
+<!--
+We're going to fix that by modifying our build script to copy our `res` folder to where cargo creates our executable, and we'll reference it from there. Add the following lines to `build.rs` after you compile the shaders.
+-->
+これを修正するためにビルドスクリプトで `res` フォルダを実行ファイルのある場所にコピーし、それを参照することにします。`build.rs` でシェーダーをコンパイルした後に以下を記述します。
 
 ```rust
-use std::path::Path;
+// This tells cargo to rerun this script if something in /res/ changes.
+println!("cargo:rerun-if-changed=res/*");
 
-pub fn load<P: AsRef<Path>>(
-    device: &wgpu::Device,
-    path: P,
-) -> Result<(Self, wgpu::CommandBuffer), failure::Error> {
-    // Needed to appease the borrow checker
-    // これは borrow checker の警告を抑えるために必要になります。
-    let path_copy = path.as_ref().to_path_buf();
-    let label = path_copy.to_str();
-    
-    let img = image::open(path)?;
-    Self::from_image(device, &img, label)
-}
+let out_dir = env::var("OUT_DIR")?;
+let mut copy_options = CopyOptions::new();
+copy_options.overwrite = true;
+let mut paths_to_copy = Vec::new();
+paths_to_copy.push("res/");
+copy_items(&paths_to_copy, out_dir, &copy_options)?;
 ```
 
-<!--
-The `load` method will be useful when we load the textures for our models, as `include_bytes!` requires that we know the name of the file at compile time which we can't really guarantee with model textures.
--->
-`load` メソッドは私たちのモデルのテクスチャを読み込むときにとても役に立ちます。`include_bytes!` はコンパイル時にファイル名が必要になりますが、私たちはモデルのテクスチャが常にあることを保証はできません。
+<div class="note">
 
 <!--
-While we're at it let's import `texture.rs` in `model.rs`.
+The `OUT_DIR` is an environment variable that cargo uses to specify where our application will be built.
 -->
-では `texture.rs` を `model.rs` から読み込みましょう。
+OUT_DIR は cargo がビルド時に使う環境変数です。
 
-```rust
-use crate::texture;
-```
+</div>
 
 
 ## Loading models with TOBJ
@@ -161,6 +158,51 @@ The `Material` is pretty simple, it's just the name and one texture. Our cube ob
 `Material` はとてもシンプルで、名前とテクスチャだけです。私たちの Cube obj は実際に 2 つのテクスチャしかありませんが、一つは normal マップで、それは[後々](../../intermediate/normal-mapping)使います。name は多くの場合デバッグ目的のものです。
 
 <!--
+Speaking of textures, we'll need to add a `load()` method to `Texture` in `texture.rs`.
+-->
+テクスチャーといえば、 `texture.rs` にある `Texture` に `load()` メソッドを足す必要があります。
+
+```rust
+use std::path::Path;
+
+pub fn load<P: AsRef<Path>>(
+    device: &wgpu::Device,
+    queue: &wgpu::Queue,
+    path: P,
+) -> Result<(Self, wgpu::CommandBuffer), failure::Error> {
+    // Needed to appease the borrow checker
+    let path_copy = path.as_ref().to_path_buf();
+    let label = path_copy.to_str();
+    
+    let img = image::open(path)?;
+    Self::from_image(device, queue, &img, label)
+}
+```
+
+<!--
+The `load` method will be useful when we load the textures for our models, as `include_bytes!` requires that we know the name of the file at compile time which we can't really guarantee with model textures.
+-->
+`load` メソッドは私たちのモデルのテクスチャを読み込むときにとても役に立ちます。`include_bytes!` はコンパイル時にファイル名が必要になりますが、私たちはモデルのテクスチャが常にあることを保証はできません。
+
+<!--
+While we're at it let's import `texture.rs` in `model.rs`.
+-->
+では `texture.rs` を `model.rs` から読み込みましょう。
+
+```rust
+use crate::texture;
+```
+
+<!--
+We also need to make a subtle change on `from_image()` method in `texture.rs`. PNGs work fine with `as_rgba8()`, as they have an alpha channel. But, JPEGs don't have an alpha channel, and the code would panic if we try to call `as_rgba8()` on the JPEG texture image we are going to use. Instead, we can use `to_rgba()` to handle such an image.
+-->
+`texture.rs` の `from_image()` もまた変更が必要です。PNGファイルは `as_rgba8()` でアルファチャネルも問題なく動きます。しかし、JPEGファイルはアルファチャネルは持たないのでこのコードで JPEG テクスチャ画像を読み込もうとすると `as_rgba8()` でパニックが発生します。代わりにそれらの画像では `to_rgba()` を使います。
+
+```rust
+let rgba = img.to_rgba(); 
+```
+
+<!--
 `Mesh` holds a vertex buffer, an index buffer, and the number of indices in the mesh. We're using an `usize` for the material. This `usize` will be used to index the `materials` list when it comes time to draw.
 -->
 `Mesh` は頂点バッファ、インデックスバッファ、メッシュ内のインデックスの数を持ちます。material には `usize` を使います。この `usize` は `matelials` のリストのインデックスとして描画時に使われます。
@@ -174,33 +216,30 @@ With all that out of the way, we can get to loading our model.
 impl Model {
     pub fn load<P: AsRef<Path>>(
         device: &wgpu::Device,
+        queue: &wgpu::Queue,
         layout: &wgpu::BindGroupLayout,
         path: P,
-    ) -> Result<(Self, Vec<wgpu::CommandBuffer>), failure::Error> {
-        let (obj_models, obj_materials) = tobj::load_obj(path.as_ref())?;
+    ) -> Result<Self> {
+        let (obj_models, obj_materials) = tobj::load_obj(path.as_ref(), true)?;
 
         // We're assuming that the texture files are stored with the obj file
         // texture file は obj file と一緒に保存されていると仮定している。
-        let containing_folder = path.as_ref().parent().unwrap();
-
-        // Our `Texure` struct currently returns a `CommandBuffer` when it's created so we need to collect those and return them.
-        // `Texture` 構造体は作成時に `CommandBuffer` を返すようになっているので、それらを集めて返す必要があります。
-        let mut command_buffers = Vec::new();
+        let containing_folder = path.as_ref().parent()
+            .context("Directory has no parent")?;
 
         let mut materials = Vec::new();
         for mat in obj_materials {
             let diffuse_path = mat.diffuse_texture;
-            let (diffuse_texture, cmds) =
-                texture::Texture::load(&device, containing_folder.join(diffuse_path))?;
+            let diffuse_texture = texture::Texture::load(device, queue, containing_folder.join(diffuse_path))?;
 
             let bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
                 layout,
-                bindings: &[
-                    wgpu::Binding {
+                entries: &[
+                    wgpu::BindGroupEntry {
                         binding: 0,
                         resource: wgpu::BindingResource::TextureView(&diffuse_texture.view),
                     },
-                    wgpu::Binding {
+                    wgpu::BindGroupEntry {
                         binding: 1,
                         resource: wgpu::BindingResource::Sampler(&diffuse_texture.sampler),
                     },
@@ -211,8 +250,8 @@ impl Model {
             materials.push(Material {
                 name: mat.name,
                 diffuse_texture,
+                bind_group,
             });
-            command_buffers.push(cmds);
         }
 
         let mut meshes = Vec::new();
@@ -234,13 +273,19 @@ impl Model {
                 });
             }
 
-            let vertex_buffer = device.create_buffer_with_data(
-                bytemuck::cast_slice(&vertices),
-                wgpu::BufferUsage::VERTEX,
+            let vertex_buffer = device.create_buffer_init(
+                &wgpu::util::BufferInitDescriptor {
+                    label: Some(&format!("{:?} Vertex Buffer", path.as_ref())),
+                    contents: bytemuck::cast_slice(&vertices),
+                    usage: wgpu::BufferUsage::VERTEX,
+                }
             );
-            let index_buffer = device.create_buffer_with_data(
-                bytemuck::cast_slice(&m.mesh.indices),
-                wgpu::BufferUsage::INDEX,
+            let index_buffer = device.create_buffer_init(
+                &wgpu::util::BufferInitDescriptor {
+                    label: Some(&format!("{:?} Index Buffer", path.as_ref())),
+                    contents: bytemuck::cast_slice(&m.mesh.indices),
+                    usage: wgpu::BufferUsage::INDEX,
+                }
             );
 
             meshes.push(Mesh {
@@ -252,7 +297,7 @@ impl Model {
             });
         }
 
-        Ok((Self { meshes, materials }, command_buffers))
+        Ok(Self { meshes, materials })
     }
 }
 ```
@@ -304,8 +349,8 @@ where
         mesh: &'b Mesh,
         instances: Range<u32>,
     ){
-        self.set_vertex_buffer(0, &mesh.vertex_buffer, 0, 0);
-        self.set_index_buffer(&mesh.index_buffer, 0, 0);
+        self.set_vertex_buffer(0, mesh.vertex_buffer.slice(..));
+        self.set_index_buffer(mesh.index_buffer.slice(..));
         self.draw_indexed(0..mesh.num_elements, 0, instances);
     }
 }
@@ -332,17 +377,23 @@ Before that though we need to actually load the model and save it to `State`. Pu
 それを行う前に、実際にモデルをロードして `State` に保存しなければいけません。`State::new()` に以下を追加しましょう。
 
 ```rust
-let (obj_model, cmds) = model::Model::load(
+let res_dir = std::path::Path::new(env!("OUT_DIR")).join("res");
+let obj_model = model::Model::load(
     &device,
+    &queue,
     &texture_bind_group_layout,
-    "code/beginner/tutorial9-models/src/res/cube.obj",
+    res_dir.join("cube.obj"),
 ).unwrap();
 ```
 
+<div class="note">
+
 <!--
-The path to the obj will be different for you, so keep that in mind.
+We're using `OUT_DIR` here to get at our `res` folder.
 -->
-obj の path はもしかしたらあなたの環境では異なるかもしれないことを気に留めておいてください。
+`OUT_DIR` という環境変数を利用して `res` フォルダを解決しています。
+
+</div>
 
 <!--
 Our new model is a bit bigger than our previous one so we're gonna need to adjust the spacing on our instances a bit.
@@ -382,6 +433,7 @@ With all that done, you should get something like this.
 ## Using the correct textures
 -->
 ## 正しい Texture を使う
+
 <!--
 If you look at the texture files for our obj, you'll see that they don't match up to our obj. The texture we want to see is this one,
 -->
@@ -443,8 +495,8 @@ where
         instances: Range<u32>,
         uniforms: &'b wgpu::BindGroup,
     ) {
-        self.set_vertex_buffer(0, &mesh.vertex_buffer, 0, 0);
-        self.set_index_buffer(&mesh.index_buffer, 0, 0);
+        self.set_vertex_buffer(0, mesh.vertex_buffer.slice(..));
+        self.set_index_buffer(mesh.index_buffer.slice(..));
         self.set_bind_group(0, &material.bind_group, &[]);
         self.set_bind_group(1, &uniforms, &[]);
         self.draw_indexed(0..mesh.num_elements, 0, instances);
@@ -463,15 +515,6 @@ render_pass.set_pipeline(&self.render_pipeline);
 let mesh = &self.obj_model.meshes[0];
 let material = &self.obj_model.materials[mesh.material];
 render_pass.draw_mesh_instanced(mesh, material, 0..self.instances.len() as u32, &self.uniform_bind_group);
-```
-
-<!--
-We also need to make a subtle change on `from_image()` method in `texture.rs`. PNGs work fine with `as_rgba8()`, as they have an alpha channel. But, JPEGs don't have an alpha channel, and the code would panic if we try to call `as_rgba8()` on the JPEG texture image we are going to use. Instead, we can use `to_rgba()` to handle such an image.
--->
-`texture.rs` の `from_image()` にもわずかな変更が必要です。PNG はアルファチャネルを持つので `as_rgba8()` でいい感じに動きます。しかし JPEG はアルファチャネルを持たないので JPEG のテクスチャ画像で `as_rgba8()` を呼び出すとパニックを起こします。代わりに `to_rgba()` をそれらのイメージについては呼び出してやります。
-
-```rust
-let rgba = img.to_rgba(); 
 ```
 
 <!--

@@ -13,16 +13,16 @@ For convenience we're going to pack all the fields into a struct, and create som
 // main.rs
 struct State {
     surface: wgpu::Surface,
-    adapter: wgpu::Adapter,
     device: wgpu::Device,
     queue: wgpu::Queue,
     sc_desc: wgpu::SwapChainDescriptor,
     swap_chain: wgpu::SwapChain,
-
     size: winit::dpi::PhysicalSize<u32>,
 }
 
 impl State {
+    // Creating some of the wgpu types requires async code
+    // いくつかの wgpu の型を作成するときに非同期コードが必要になります。
     async fn new(window: &Window) -> Self {
         unimplemented!()
     }
@@ -31,8 +31,6 @@ impl State {
         unimplemented!()
     }
 
-    // input() won't deal with GPU code, so it can be synchronous
-    // このメソッドは GPU で処理しないので同期的に書けます。
     fn input(&mut self, event: &WindowEvent) -> bool {
         unimplemented!()
     }
@@ -64,15 +62,16 @@ impl State {
     async fn new(window: &Window) -> Self {
         let size = window.inner_size();
 
-        let surface = wgpu::Surface::create(window);
-
-        let adapter = wgpu::Adapter::request(
+        // The instance is a handle to our GPU
+        // BackendBit::PRIMARY => Vulkan + Metal + DX12 + Browser WebGPU
+        let instance = wgpu::Instance::new(wgpu::BackendBit::PRIMARY);
+        let surface = unsafe { instance.create_surface(window) };
+        let adapter = instance.request_adapter(
             &wgpu::RequestAdapterOptions {
                 power_preference: wgpu::PowerPreference::Default,
                 compatible_surface: Some(&surface),
             },
-            wgpu::BackendBit::PRIMARY, // Vulkan + Metal + DX12 + Browser WebGPU
-        ).await.unwrap(); // Get used to seeing this
+        ).await.unwrap();
 ```
 
 <!--
@@ -86,17 +85,44 @@ We need the `adapter` to create the device and queue.
 `adapter` は `device` と `queue` を作るのに必要です。
 
 ```rust
-        let (device, queue) = adapter.request_device(&wgpu::DeviceDescriptor {
-            extensions: wgpu::Extensions {
-                anisotropic_filtering: false,
+        let (device, queue) = adapter.request_device(
+            &wgpu::DeviceDescriptor {
+                features: wgpu::Features::empty(),
+                limits: wgpu::Limits::default(),
+                shader_validation: true,
             },
-            limits: Default::default(),
-        }).await;
+            None, // Trace path
+        ).await.unwrap();
 ```
+
 <!--
-As of writing, the wgpu implementation doesn't allow you to customize much of requesting a device and queue. Eventually the descriptor structs will be filled out more to allow you to find the optimal device and queue. Even so, we still need them, so we'll store them in the struct.
+The `features` field on `DeviceDescriptor`, allows us to specify what extra features we want. For this simple example, I've deviced to not use any extra features.
 -->
-執筆時点では wgpu 実装は device と queue は多くのカスタマイズリクエストを許していません。いずれこの構造体は多くの `device` と `queue` の最適化記述でいっぱいになることでしょう。ですけど、これらは必要なので書いておきます。
+`DeviceDescriptor` の `features` フィールドはどのような拡張機能を利用するかを明示します。このシンプルな example では拡張機能を使わないでデバイスを作成します。
+
+<div class="note">
+
+<!--
+The device you have limits the features you can use. If you want to use certain features you may need to limit what devices you support, or provide work arounds.
+-->
+利用するデバイスは機能が制限されている場合があります。もし制限されているある機能を利用しようとする場合、サポートするデバイスを制限するかワークアラウンド(回避策)を提供する必要があります。
+
+<!--
+You can get a list of features supported by your device using `adapter.features()`, or `device.features()`.
+-->
+デバイスがサポートしている機能のリストは `adapter.features()` か `device.features()` で取得することができます。
+
+<!--
+You can view a full list of features [here](https://docs.rs/wgpu/0.6.0/wgpu/struct.Features.html).
+-->
+機能のリストの全体は[こちら](https://docs.rs/wgpu/0.6.0/wgpu/struct.Features.html)で見ることができます。
+
+</div>
+
+<!--
+The `limits` field describes the limit of certain types of resource we can create. We'll use the defaults for this tutorial, so we can support most devices. You can view a list of limits [here](https://docs.rs/wgpu/0.6.0/wgpu/struct.Limits.html).
+-->
+`limits` フィールドは特定のタイプのリソースしか作れないような制限を指定します。このチュートリアルではデフォルトを指定しますので、ほとんどのデバイスをサポートできます。制限のリストは[こちら](https://docs.rs/wgpu/0.6.0/wgpu/struct.Limits.html)で見ることができます。
 
 ```rust
         let sc_desc = wgpu::SwapChainDescriptor {
@@ -174,7 +200,6 @@ At the end of the method, we simply return the resulting struct.
 ```rust
         Self {
             surface,
-            adapter,
             device,
             queue,
             sc_desc,
@@ -237,8 +262,8 @@ match event {
                 state.resize(*physical_size);
             }
             WindowEvent::ScaleFactorChanged { new_inner_size, .. } => {
-                // new_inner_size is &mut so we have to dereference it twice
-                // new_inner_size は &mut なので二回 deref します。(訳者: なぜだろう？)
+                // new_inner_size is &&mut so we have to dereference it twice
+                // new_inner_size は &&mut なので二回 deref します。
                 state.resize(**new_inner_size);
             }
             // ...
@@ -276,7 +301,7 @@ event_loop.run(move |event, _, control_flow| {
         Event::WindowEvent {
             ref event,
             window_id,
-        } if window_id == window.id() => if !state.input(event) { // <- This line changed after the "=>" (この行の　=> 以降が変更点です)
+        } if window_id == window.id() => if !state.input(event) { // UPDATED!
             match event {
                 WindowEvent::CloseRequested => *control_flow = ControlFlow::Exit,
                 WindowEvent::KeyboardInput {
@@ -296,12 +321,11 @@ event_loop.run(move |event, _, control_flow| {
                     state.resize(*physical_size);
                 }
                 WindowEvent::ScaleFactorChanged { new_inner_size, .. } => {
-                    // new_inner_size is &mut so w have to dereference it twice
                     state.resize(**new_inner_size);
                 }
                 _ => {}
-            } // <- remove the comma on this line (この行の最後のカンマは削除します)
-        } // <- Add a new closing brace for the if expression　(新しくifを閉じるbraceを追加します)
+            }
+        }
         _ => {}
     }
 });
@@ -331,8 +355,9 @@ Here's where the magic happens. First we need to get a frame to render to. This 
 // impl State
 
 fn render(&mut self) {
-    let frame = self.swap_chain.get_next_texture()
-        .expect("Timeout getting texture");
+    let frame = self.swap_chain.get_current_frame()
+        .expect("Timeout getting texture")
+        .output;
 ```
 
 <!--
@@ -358,23 +383,23 @@ Now we can actually get to clearing the screen (long time coming). We need to us
                 wgpu::RenderPassColorAttachmentDescriptor {
                     attachment: &frame.view,
                     resolve_target: None,
-                    load_op: wgpu::LoadOp::Clear,
-                    store_op: wgpu::StoreOp::Store,
-                    clear_color: wgpu::Color {
-                        r: 0.1,
-                        g: 0.2,
-                        b: 0.3,
-                        a: 1.0,
-                    },
+                    ops: wgpu::Operations {
+                        load: wgpu::LoadOp::Clear(wgpu::Color {
+                            r: 0.1,
+                            g: 0.2,
+                            b: 0.3,
+                            a: 1.0,
+                        }),
+                        store: true,
+                    }
                 }
             ],
             depth_stencil_attachment: None,
         });
     }
 
-    self.queue.submit(&[
-        encoder.finish()
-    ]);
+    // submit will accept anything that implements IntoIter
+    self.queue.submit(std::iter::once(encoder.finish()));
 }
 ```
 
@@ -458,14 +483,15 @@ We'll use `depth_stencil_attachment` later, but we'll set it to `None` for now.
 wgpu::RenderPassColorAttachmentDescriptor {
     attachment: &frame.view,
     resolve_target: None,
-    load_op: wgpu::LoadOp::Clear,
-    store_op: wgpu::StoreOp::Store,
-    clear_color: wgpu::Color {
-        r: 0.1,
-        g: 0.2,
-        b: 0.3,
-        a: 1.0,
-    },
+    ops: wgpu::Operations {
+        load: wgpu::LoadOp::Clear(wgpu::Color {
+            r: 0.1,
+            g: 0.2,
+            b: 0.3,
+            a: 1.0,
+        }),
+        store: true,
+    }
 }
 ```
 
@@ -475,19 +501,25 @@ The `RenderPassColorAttachmentDescriptor` has the `attachment` field which infor
 `RenderPassColorAttachmentDescriptor` は `attachement` フィールドを持ち `wgpu` に texture がどんな色を持つかという情報を伝えます。ここでは `frame.view` を渡していて、これは `swap_chain.get_next_texture()` で作られたものです。つまりこのアタッチメントに描く色はすべてスクリーン上に描かれます。
 
 <!--
-There's not much documentation for `resolve_target` at the moment, but it does expect an `Option<&'a TextureView>`. Fortunately, we can use `None`.
+This is the texture that will received the resolved output. This will be the same as `attachment` unless multisampling is enabled. We don't need to specify this, so we leave it as `None`.
 -->
-`resolve_target` はしばらく使う予定はありませんが幸いなことに `Option<&'a TextureView>` なので `None` を渡しておきます。
+これは解決された出力を受け取るテクスチャです。multisampling を有効にしていなければ `attachement` と同じようなものです。今は必要がないので `None` を指定しておきます。
 
 <!--
-`load_op` and `store_op` define what operation to perform when gpu looks to load and store the colors for this color attachment for this render pass. We'll get more into this when we cover render passes in depth, but for now we just `LoadOp::Clear` the texture when the render pass starts, and `StoreOp::Store` the colors when it ends.
+The `obs` field takes an `wpgu::Operations` object. This tells wgpu what to do with the colors on the screen (specified by `frame.view`). The `load` field tells wgpu how to handle colors store from the previous frame. Currently we are clearing the screen with a bluish color.
 -->
-`load_op` と `store_op` は GPU がこの color attachment を render pass から読み込んだり保存しようとするときにどのようなオペレーションをするか定義します。render pass について深く説明するときに詳細に触れますが、 `LoadOp::Clear` はテクスチャの描画を開始するときに呼びだされ、`StoreOp::Store` はテクスチャ描画を終了するときに呼び出されます。
+`obs` field は `wpgu::Operations` を受け取ります。これは wgpu にどの色を使ってスクリーンを描画するか教えます(`frame.view` で指定されています)。`load` フィールドは前のフレームの色をどのように扱うかを決めます。今は青みがかった色でスクリーンをクリアしています。
+
+<div class="note">
 
 <!--
-The last field `clear_color` is just the color to use when `LoadOp::Clear` and/or `StoreOp::Clear` are used. This is where the blue color comes from.
+It's not uncommon to not clear the screen if the streen is going to be completely covered up with objects. If you're scene doesn't cover the entire screen however you'll end up with something like this.
 -->
-最後の `clear_color` は `LoadOp::Clear` を呼ばれた時や `StoreOp::Clear` を呼ばれたときに使われます。これがスクリーンが青色になった理由です。
+スクリーンが完全にオブジェクトで覆われている場合、スクリーンをクリアしないケースケースも珍しくありません。もしスクリーンを全てカバーしていないシーンであればこのようになります。
+
+![./no-clear.png](./no-clear.png)
+
+</div>
 
 ## Challenge
 
