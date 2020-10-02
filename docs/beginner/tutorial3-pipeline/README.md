@@ -387,15 +387,30 @@ With all that you should be seeing a lovely brown triangle.
 
 ![Said lovely brown triangle](./tutorial3-pipeline-triangle.png)
 
+<!--
 ## Compiling shaders and include_spirv
+-->
+## sheder のコンパイルと include_spirv
 
+<!--
 Currently we're compiling our shaders when our program starts up, and while this is a valid way of doing things it slows down our programs start up considerably. It also prevents us from using wgpu's `include_spirv` convenience macro that would inline the spirv code directly. Doing this would also remove our dependency on shaderc (at least for the runtime code).
+-->
+現時点ではシェーダーはプログラムの起動時にコンパイルしています。これは有効な方法ですが起動時にかなり時間がかかります。これは wgpu の `include_spirv` という便利なマクロを使い spirv コードを直接インライン化することで避けることもできます。これにより shaderc の依存を少なくともランタイムのコードからは取り除くことができます。
 
+<!--
 We can do this using a build script. A build script is a file that runs when cargo is compiling your project. We can use it for all sorts of things including compiling our shaders!
+-->
+build script を使うことができます。build script は cargo がプロジェクトをコンパイルするときに実行されるファイルです。これは shader のコンパイルを含むいろいろなものに使うことができます。
 
+<!--
 Add a file called `build.rs` at the same level as the src directory. It should be at in the same folder as your `Cargo.toml`.
+-->
+`build.rs` という名前のファイルを src ディレクトリと同じ階層に追加しましょう。これは `Cargo.toml` と同じフォルダという意味です。
 
+<!--
 We'll start writing code in it in a bit. First we need to add some things to our `Cargo.toml`.
+-->
+では少しコードを書きます。最初は `Cargo.toml` に追加します。
 
 ```toml
 [dependencies]
@@ -414,9 +429,15 @@ glob = "0.3"
 shaderc = "0.6"
 ```
 
+<!--
 We've removed shaderc from our dependencies and added a new `[build-depencies]` block. These are dependencies for our build script. We know about shaderc, but the other ones are meant to simplify dealing with the file system and dealing with rust errors.
+-->
+sharderc を dependencies から削除し、新しい `[build-depencies]` ブロックに追加します。これらは build script が依存するものです。shaderc についてはしてていますが、ほかのものはファイルシステムや rust のエラーをシンプルに扱うためのものです。
 
+<!--
 Now we can put some code in our `build.rs`.
+-->
+これで `build.rs` にコードを書いていけます。
 
 ```rust
 use glob::glob;
@@ -453,9 +474,11 @@ impl ShaderData {
 
 fn main() -> Result<()> {
     // This tells cargo to rerun this script if something in /src/ changes.
+    // これは cargo に /src/ 以下に変更があった時にスクリプトを再実行することを伝えます。
     println!("cargo:rerun-if-changed=src/*");
     
     // Collect all shaders recursively within /src/
+    // 全ての src の shader を再帰的に集めます。
     let mut shader_paths = [
         glob("./src/**/*.vert")?,
         glob("./src/**/*.frag")?,
@@ -463,6 +486,7 @@ fn main() -> Result<()> {
     ];
     
     // This could be parallelized
+    // ここは並列化できます。
     let shaders = shader_paths.iter_mut()
         .flatten()
         .map(|glob_result| {
@@ -480,6 +504,10 @@ fn main() -> Result<()> {
     // spawn multiple processes to handle this, but it would probably
     // be better just to only compile shaders that have been changed
     // recently.
+    // ここは並列化できません。[shaderc::Compiler] はスレッドセーフではありません。
+    // また、この crate は多くのリソースを必要とします。
+    // マルチプロセス化してやることもできますが、
+    // 多分直近で変更されたシェーダーだけをコンパイルするほうがマシです。
     for shader in shaders? {
         let compiled = compiler.compile_into_spirv(
             &shader.src, 
@@ -495,7 +523,10 @@ fn main() -> Result<()> {
 }
 ```
 
+<!--
 With that in place we can replace our shader compiling code in `main.rs` with just two lines!
+-->
+これで `main.rs` の 2 つの行をコンパイルされた shader コードに置き換えることができます。
 
 ```rust
 let vs_module = device.create_shader_module(wgpu::include_spirv!("shader.vert.spv"));
@@ -504,7 +535,10 @@ let fs_module = device.create_shader_module(wgpu::include_spirv!("shader.frag.sp
 
 <div class="note">
 
+<!--
 I'm glossing over the code in the build script as this guide is focused on wgpu related topics. Designing build scripts is a topic in and of itself, and going into it in detail would be quite a long tangent.
+-->
+build script の code について wgpu に関連したトピックにフォーカスして紹介しています。build script のデザインやそれ自身についてのトピックや、詳細についてはとても長い説明が必要です。
 
 </div>
 
