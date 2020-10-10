@@ -30,7 +30,7 @@ A vertex is a point in 3d space (can also be 2d). These vertices are then bundle
 <img src="./tutorial3-pipeline-vertices.png" />
 
 <!--
-Most modern rendering uses triangles to make all shapes, from simple (such as cubes) to complex (such as people).
+Most modern rendering uses triangles to make all shapes, from simple (such as cubes), to complex (such as people).
 -->
 ほとんどの現代的なレンダリングでは、簡単なもの(例えば立方体)から複雑なもの(例えば人々)まで三角形ですべて構成されています。
 
@@ -51,9 +51,9 @@ You can think of a fragment as the beginnings of a pixel in the resulting image.
 -->
 ## GLSL と SPIR-V
 <!--
-Shaders in `wgpu` are written with a binary language called [SPIR-V](https://www.khronos.org/registry/spir-v/). SPIR-V is designed for computers to read, not people, so we're going to use a language called GLSL to write our code, and then convert that to SPIR-V.
+Shaders in `wgpu` are written with a binary language called [SPIR-V](https://www.khronos.org/registry/spir-v/). SPIR-V is designed for computers to read, not people, so we're going to use a language called GLSL (specifically, with `wgpu` we need to use the [Vulkan flavor of GLSL](https://github.com/KhronosGroup/GLSL/blob/master/extensions/khr/GL_KHR_vulkan_glsl.txt)) to write our code, and then convert that to SPIR-V.
 -->
-`wgpu` におけるシェーダーは [SPIR-V](https://www.khronos.org/registry/spir-v/) と呼ばれるバイナリ言語で書かれています。SPIR-V はコンピュータ可読にデザインされており、人間が読むものではないので、GLSL という言語でコードを書き SPIR-V にコンバートします。
+`wgpu` におけるシェーダーは [SPIR-V](https://www.khronos.org/registry/spir-v/) と呼ばれるバイナリ言語で書かれています。SPIR-V はコンピュータ可読にデザインされており、人間が読むものではないので、GLSL という言語でコードを書き SPIR-V にコンバートします。(具体的にいうと、`wgpu` では [Valkan 方言の GLSL](https://github.com/KhronosGroup/GLSL/blob/master/extensions/khr/GL_KHR_vulkan_glsl.txt) を使います)
 
 <!--
 In order to do that, we're going to need something to do the conversion. Add the following crate to your dependencies.
@@ -199,9 +199,12 @@ One more thing, we need to create a `PipelineLayout`. We'll get more into this a
 もう一つ、 `PipelineLayout` も作らないといけません。これは後で `Buffer` を作るときに必要になってきます。
 
 ```rust
-let render_pipeline_layout = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
-    bind_group_layouts: &[],
-});
+let render_pipeline_layout =
+    device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
+        label: Some("Render Pipeline Layout"),
+        bind_group_layouts: &[],
+        push_constant_ranges: &[],
+    });
 ```
 
 <!--
@@ -221,6 +224,7 @@ let render_pipeline = device.create_render_pipeline(&wgpu::RenderPipelineDescrip
         module: &fs_module,
         entry_point: "main",
     }),
+    // continued ...
 ```
 
 <!--
@@ -233,7 +237,6 @@ Two things to note here:
 2. `fragment_stage` は技術的には Optional (あってもなくてもよい)なので `Some()` でラップしてます。私は頂点シェーダーをフラグメントシェーダーなしで使ったことはありませんが、もし必要なら使わないという選択もできます。
 
 ```rust
-    // continued ...
     rasterization_state: Some(
         wgpu::RasterizationStateDescriptor {
             front_face: wgpu::FrontFace::Ccw,
@@ -244,6 +247,7 @@ Two things to note here:
             clamp_depth: false,
         }
     ),
+    // continued ...
 ```
 
 <!--
@@ -257,7 +261,6 @@ We'll cover culling a bit more when we cover `Buffer`s.
 カリングについては `Buffer` の項でさらに触れます。
 
 ```rust
-    // continued ...
     color_states: &[
         wgpu::ColorStateDescriptor {
             format: sc_desc.format,
@@ -266,6 +269,7 @@ We'll cover culling a bit more when we cover `Buffer`s.
             write_mask: wgpu::ColorWrite::ALL,
         },
     ],
+    // continued ...
 ```
 <!--
 A `color_state` describes how colors are stored and processed throughout the pipeline. You can have multiple color states, but we only need one as we're just drawing to the screen. We use the `swap_chain`'s format so that copying to it is easy, and we specify that the blending should just replace old pixel data with new data. We also tell `wgpu` to write to all colors: red, blue, green, and alpha. *We'll talk more about*`color_state` *when we talk about textures.*
@@ -273,7 +277,6 @@ A `color_state` describes how colors are stored and processed throughout the pip
 `color_state` はパイプライン中でどのように色が保存されたり処理されるかを記述します。複数の color state を用意することができますが、スクリーンに描画するには一つだけあればよいでしょう。`swap_chain` のフォーマットをコピーするのが簡単ですし、色のブレンディングは古いピクセルデータを新しいものでリプレースするだけでよいでしょう。また GPU には 青、赤、黄色、透明度のすべての値を書き込むようにしています。テクスチャについては話すときに　`color_state` についてもう少し触れます。
 
 ```rust
-    // continued ...
     primitive_topology: wgpu::PrimitiveTopology::TriangleList, // 1.
     depth_stencil_state: None, // 2.
     vertex_state: wgpu::VertexStateDescriptor {
@@ -476,7 +479,7 @@ fn main() -> Result<()> {
     // This tells cargo to rerun this script if something in /src/ changes.
     // これは cargo に /src/ 以下に変更があった時にスクリプトを再実行することを伝えます。
     println!("cargo:rerun-if-changed=src/*");
-    
+
     // Collect all shaders recursively within /src/
     // 全ての src の shader を再帰的に集めます。
     let mut shader_paths = [
@@ -484,7 +487,7 @@ fn main() -> Result<()> {
         glob("./src/**/*.frag")?,
         glob("./src/**/*.comp")?,
     ];
-    
+
     // This could be parallelized
     // ここは並列化できます。
     let shaders = shader_paths.iter_mut()
@@ -510,10 +513,10 @@ fn main() -> Result<()> {
     // 多分直近で変更されたシェーダーだけをコンパイルするほうがマシです。
     for shader in shaders? {
         let compiled = compiler.compile_into_spirv(
-            &shader.src, 
-            shader.kind, 
-            &shader.src_path.to_str().unwrap(), 
-            "main", 
+            &shader.src,
+            shader.kind,
+            &shader.src_path.to_str().unwrap(),
+            "main",
             None
         )?;
         write(shader.spv_path, compiled.as_binary_u8())?;
@@ -544,7 +547,7 @@ build script の code について wgpu に関連したトピックにフォー�
 
 ## Challenge
 <!--
-Create a second pipeline that uses the triangle's position data to create a color that it then sends to the fragment shader to use for `f_color`. Have the app swap between these when you press the spacebar. *Hint: use*`in`*and*`out`*variables in a separate shader.*
+Create a second pipeline that uses the triangle's position data to create a color that it then sends to the fragment shader to use for `f_color`. Have the app swap between these when you press the spacebar. *Hint: use* `in` *and* `out` *variables in a separate shader.*
 -->
 もう一つパイプラインを作ってみましょう。トライアングルの位置から色を作りフラグメントシェーダーが使う f_color に指定してみましょう。そしてスペースキーを押すとパイプラインが切り替わるようにしてみましょう。ヒント:このシェーダーで `in` 変数と `out` 変数を使います。
 

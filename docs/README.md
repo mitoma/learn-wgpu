@@ -23,7 +23,7 @@ wgpu はまだ開発中なので、いくつかのドキュメントは変更さ
 -->
 ## なぜ Rust でしょう
 <!--
-Wgpu actually has C bindings to allow you to write C/C++ code with it, as well as use other languages that interface with C. That being said, wgpu is written in Rust, and it has some convient Rust Bindings that don't have to jump through any hoops. On top of that, I've been enjoying writing in Rust.
+Wgpu actually has C bindings to allow you to write C/C++ code with it, as well as use other languages that interface with C. That being said, wgpu is written in Rust, and it has some convient Rust bindings that don't have to jump through any hoops. On top of that, I've been enjoying writing in Rust.
 -->
 Wgpu は実際に C バインディングを持っており C/C++でコードを書くこともできますし、C を呼び出せる言語でそれを使うことも同様にできます。とはいえ wgpu は Rust で書かれているので、Rust Binding を使うと飛び越えなくてはいけない障害が少なくなります。そのうえ Rust で書くのは楽しいです。
 

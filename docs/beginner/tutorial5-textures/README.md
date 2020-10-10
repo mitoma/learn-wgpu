@@ -105,9 +105,12 @@ The old way of writing data to a texture was to copy the pixel data to a buffer,
 テクスチャにデータを書き込むには、古いやり方ではピクセルデータを buffer にコピーしてからテクスチャーにコピーしていました。`write_texture` を使うと一つのバッファしか使わないのでより効率的です。必要になる場合があるかもしれないのでここに残しておきます。
 
 ```rust
-let buffer = device.create_buffer_with_data(
-    &diffuse_rgba,
-    wgpu::BufferUsage::COPY_SRC,
+let buffer = device.create_buffer_init(
+    &wgpu::util::BufferInitDescriptor {
+        label: Some("Temp Buffer"),
+        &diffuse_rgba,
+        wgpu::BufferUsage::COPY_SRC,
+    }
 );
 
 let mut encoder = device.create_command_encoder(&wgpu::CommandEncoderDescriptor {
@@ -655,7 +658,7 @@ texture を作るコードを `new()` に入れるのはとてもシンプルで
 
 ```rust
 let diffuse_bytes = include_bytes!("happy-tree.png");
-let diffuse_texture = texture::Texture::from_bytes(&device, diffuse_bytes, "happy-tree.png").unwrap();
+let diffuse_texture = texture::Texture::from_bytes(&device, &queue, diffuse_bytes, "happy-tree.png").unwrap();
 ```
 
 <!--

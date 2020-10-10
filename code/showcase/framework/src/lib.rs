@@ -3,8 +3,8 @@ mod camera;
 mod light;
 mod model;
 mod pipeline;
-mod texture;
 pub mod prelude;
+mod texture;
 
 pub use buffer::*;
 pub use camera::*;
@@ -22,7 +22,6 @@ use winit::event_loop::{ControlFlow, EventLoop};
 use winit::window::{Window, WindowBuilder};
 
 pub struct Display {
-    _adapter: wgpu::Adapter,
     surface: wgpu::Surface,
     pub sc_desc: wgpu::SwapChainDescriptor,
     pub swap_chain: wgpu::SwapChain,
@@ -35,20 +34,24 @@ impl Display {
         let size = window.inner_size();
         let instance = wgpu::Instance::new(wgpu::BackendBit::PRIMARY);
         let surface = unsafe { instance.create_surface(window) };
-        let _adapter = instance.request_adapter(
-            &wgpu::RequestAdapterOptions {
+        let adapter = instance
+            .request_adapter(&wgpu::RequestAdapterOptions {
                 power_preference: wgpu::PowerPreference::Default,
                 compatible_surface: Some(&surface),
-            },
-        ).await.unwrap();
-        let (device, queue) = _adapter.request_device(
-            &wgpu::DeviceDescriptor {
-                features: wgpu::Features::empty(),
-                limits: wgpu::Limits::default(),
-                shader_validation: true,
-            },
-            None,
-        ).await.unwrap();
+            })
+            .await
+            .unwrap();
+        let (device, queue) = adapter
+            .request_device(
+                &wgpu::DeviceDescriptor {
+                    features: wgpu::Features::empty(),
+                    limits: wgpu::Limits::default(),
+                    shader_validation: true,
+                },
+                None,
+            )
+            .await
+            .unwrap();
         let sc_desc = wgpu::SwapChainDescriptor {
             usage: wgpu::TextureUsage::OUTPUT_ATTACHMENT,
             format: wgpu::TextureFormat::Bgra8UnormSrgb,
@@ -59,7 +62,6 @@ impl Display {
         let swap_chain = device.create_swap_chain(&surface, &sc_desc);
 
         Ok(Self {
-            _adapter,
             surface,
             sc_desc,
             swap_chain,
@@ -74,7 +76,6 @@ impl Display {
         self.swap_chain = self.device.create_swap_chain(&self.surface, &self.sc_desc);
     }
 }
-
 
 /**
  * Holds the camera data to be passed to wgpu.
@@ -100,13 +101,11 @@ impl Uniforms {
             view_position: Zero::zero(),
             view_proj: cgmath::Matrix4::identity(),
         };
-        let buffer = device.create_buffer_init(
-            &BufferInitDescriptor {
-                label: Some("Uniform Buffer"),
-                contents: bytemuck::cast_slice(&[data]),
-                usage: wgpu::BufferUsage::COPY_DST | wgpu::BufferUsage::UNIFORM,
-            }
-        );
+        let buffer = device.create_buffer_init(&BufferInitDescriptor {
+            label: Some("Uniform Buffer"),
+            contents: bytemuck::cast_slice(&[data]),
+            usage: wgpu::BufferUsage::COPY_DST | wgpu::BufferUsage::UNIFORM,
+        });
 
         Self { data, buffer }
     }
@@ -117,13 +116,11 @@ impl Uniforms {
     }
 
     pub fn update_buffer(&self, device: &wgpu::Device, encoder: &mut wgpu::CommandEncoder) {
-        let staging_buffer = device.create_buffer_init(
-            &BufferInitDescriptor {
-                label: Some("Uniform Update Buffer"),
-                contents: bytemuck::cast_slice(&[self.data]), 
-                usage: wgpu::BufferUsage::COPY_SRC,
-            }
-        );
+        let staging_buffer = device.create_buffer_init(&BufferInitDescriptor {
+            label: Some("Uniform Update Buffer"),
+            contents: bytemuck::cast_slice(&[self.data]),
+            usage: wgpu::BufferUsage::COPY_SRC,
+        });
         encoder.copy_buffer_to_buffer(
             &staging_buffer,
             0,
@@ -145,51 +142,39 @@ pub struct UniformBinding {
 
 impl UniformBinding {
     pub fn new(device: &wgpu::Device, uniforms: &Uniforms) -> Self {
-        let layout = device.create_bind_group_layout(
-            &wgpu::BindGroupLayoutDescriptor {
-                entries: &[
-                    wgpu::BindGroupLayoutEntry {
-                        binding: 0,
-                        visibility: wgpu::ShaderStage::VERTEX | wgpu::ShaderStage::FRAGMENT,
-                        ty: wgpu::BindingType::UniformBuffer { 
-                            dynamic: false,
-                            min_binding_size: None,
-                        },
-                        count: None,
-                    },
-                ],
-                label: Some("UniformBinding::layout"),
-            }
-        );
-        let bind_group = device.create_bind_group(
-            &wgpu::BindGroupDescriptor {
-                layout: &layout,
-                entries: &[
-                    wgpu::BindGroupEntry {
-                        binding: 0,
-                        resource: wgpu::BindingResource::Buffer(uniforms.buffer.slice(..)),
-                    },
-                ],
-                label: Some("UniformBinding::bind_group")
-            }
-        );
+        let layout = device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
+            entries: &[wgpu::BindGroupLayoutEntry {
+                binding: 0,
+                visibility: wgpu::ShaderStage::VERTEX | wgpu::ShaderStage::FRAGMENT,
+                ty: wgpu::BindingType::UniformBuffer {
+                    dynamic: false,
+                    min_binding_size: None,
+                },
+                count: None,
+            }],
+            label: Some("UniformBinding::layout"),
+        });
+        let bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
+            layout: &layout,
+            entries: &[wgpu::BindGroupEntry {
+                binding: 0,
+                resource: wgpu::BindingResource::Buffer(uniforms.buffer.slice(..)),
+            }],
+            label: Some("UniformBinding::bind_group"),
+        });
 
         Self { layout, bind_group }
     }
 
     pub fn rebind(&mut self, device: &wgpu::Device, uniforms: &Uniforms) {
-        self.bind_group = device.create_bind_group(
-            &wgpu::BindGroupDescriptor {
-                layout: &self.layout,
-                entries: &[
-                    wgpu::BindGroupEntry {
-                        binding: 0,
-                        resource: wgpu::BindingResource::Buffer(uniforms.buffer.slice(..))
-                    },
-                ],
-                label: Some("UniformBinding::bind_group")
-            }
-        );
+        self.bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
+            layout: &self.layout,
+            entries: &[wgpu::BindGroupEntry {
+                binding: 0,
+                resource: wgpu::BindingResource::Buffer(uniforms.buffer.slice(..)),
+            }],
+            label: Some("UniformBinding::bind_group"),
+        });
     }
 }
 
@@ -222,13 +207,15 @@ pub async fn run<D: Demo>() -> Result<(), Error> {
         match event {
             Event::Resumed => is_resumed = true,
             Event::Suspended => is_resumed = false,
-            Event::RedrawRequested(wid) => if wid == window.id() {
-                let now = Instant::now();
-                let dt = now - last_update;
-                last_update = now;
+            Event::RedrawRequested(wid) => {
+                if wid == window.id() {
+                    let now = Instant::now();
+                    let dt = now - last_update;
+                    last_update = now;
 
-                demo.update(&mut display, dt);
-                demo.render(&mut display);
+                    demo.update(&mut display, dt);
+                    demo.render(&mut display);
+                }
             }
             Event::MainEventsCleared => {
                 if is_focused && is_resumed {
@@ -239,25 +226,22 @@ pub async fn run<D: Demo>() -> Result<(), Error> {
                 }
             }
             Event::WindowEvent {
-                event,
-                window_id,
-                ..
-            } => if window_id == window.id() {
-                match event {
-                    WindowEvent::CloseRequested => *control_flow = ControlFlow::Exit,
-                    WindowEvent::Focused(f) => is_focused = f,
-                    WindowEvent::ScaleFactorChanged {
-                        new_inner_size,
-                        ..
-                    } => {
-                        display.resize(new_inner_size.width, new_inner_size.height);
-                        demo.resize(&mut display);
+                event, window_id, ..
+            } => {
+                if window_id == window.id() {
+                    match event {
+                        WindowEvent::CloseRequested => *control_flow = ControlFlow::Exit,
+                        WindowEvent::Focused(f) => is_focused = f,
+                        WindowEvent::ScaleFactorChanged { new_inner_size, .. } => {
+                            display.resize(new_inner_size.width, new_inner_size.height);
+                            demo.resize(&mut display);
+                        }
+                        WindowEvent::Resized(new_inner_size) => {
+                            display.resize(new_inner_size.width, new_inner_size.height);
+                            demo.resize(&mut display);
+                        }
+                        _ => {}
                     }
-                    WindowEvent::Resized(new_inner_size) => {
-                        display.resize(new_inner_size.width, new_inner_size.height);
-                        demo.resize(&mut display);
-                    }
-                    _ => {}
                 }
             }
             _ => {}

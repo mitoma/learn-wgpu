@@ -6,7 +6,7 @@ Our scene right now is very simple: we have one object centered at (0,0,0). What
 シーンは今のところとてもシンプルです。オブジェクトは (0, 0, 0) の中心に置かれています。もし多数のオブジェクトを置きたいときにはどうすればいいでしょう。インスタンシングの出番です。
 
 <!--
-Instancing allows use to draw the same object multiple times with different properties (position, orientation, size, color, etc.). There are multiple ways of doing instancing. One way would be to modify the uniform buffer to include these properties and then update it before we draw each instance of our object.
+Instancing allows us to draw the same object multiple times with different properties (position, orientation, size, color, etc.). There are multiple ways of doing instancing. One way would be to modify the uniform buffer to include these properties and then update it before we draw each instance of our object.
 -->
 インスタンシングによって同じオブジェクトを複数回異なったプロパティ(ポジション、向き、大きさ、色など)で描画できるようになります。インスタンシングには複数の方法があります。一つは uniform buffer にそれらの変更されるプロパティを入れ、それぞれのインスタンスの描画前に更新する方法です。
 
@@ -30,14 +30,14 @@ pub fn draw_indexed(
 ```
 
 <!--
-The `instances` parameter takes a `Range<u32>`. This parameter tells the GPU how many copies, or instances, of our model we want to draw. Currently we are specifying `0..1`, which the GPU will draw our model once, and then it will stop. If we used `0..5`, our code would draw 5 instances.
+The `instances` parameter takes a `Range<u32>`. This parameter tells the GPU how many copies, or instances, of our model we want to draw. Currently we are specifying `0..1`, which instructs the GPU to draw our model once, and then stop. If we used `0..5`, our code would draw 5 instances.
 -->
-`instances` パラメータは `Range<u32`> をとります。このパラメータは GPU にモデルを描画するのに何回コピーするか、あるいはいくつインスタンスがあるかを教えます。現在、 `0..1` の間でしか渡していませんのでモデルは一回しか書かれずに終わってしまいます。もし `0..5` なら 5 インスタンス描画されます。
+`instances` パラメータは `Range<u32`> をとります。このパラメータは GPU にモデルを描画するのに何回コピーするか、あるいはいくつインスタンスがあるかを教えます。現在、 `0..1` の間でしか渡していませんのでこの操作ではモデルは一回しか書かれずに終わってしまいます。もし `0..5` なら 5 インスタンス描画されます。
 
 <!--
-The fact that `instances` is a `Range<u32>` may seem weird as using `1..2` for instances would still draw 1 instance of our object. Seems like it would be simpler to just use a `u32` right? The reason it's a range is because sometimes we don't want to draw **all** of our objects. Sometimes we want to draw a selection of them, because others are not in frame, our we are debugging and want to look at a particular set of instances.
+The fact that `instances` is a `Range<u32>` may seem weird as using `1..2` for instances would still draw 1 instance of our object. Seems like it would be simpler to just use a `u32` right? The reason it's a range is because sometimes we don't want to draw **all** of our objects. Sometimes we want to draw a selection of them, because others are not in frame, or we are debugging and want to look at a particular set of instances.
 -->
-実際には `instances` は `Range<u32>` として `1..2` という奇妙な値を渡すこともありますが、これも 1 インスタンスの描画になります。`u32` を単に渡したほうがシンプルだと思いますか？range を使っている理由は、しばしば **全ての** オブジェクトを描画したくないケースがあるからです。例えばほかのものはフレームから外れていたり、特定のインスタンスの集まりデバックしたいケースでは、それらのうち選択されたものだけを描画したくなります。
+実際には `instances` は `Range<u32>` として `1..2` という奇妙な値を渡すこともありますが、これも 1 インスタンスの描画になります。`u32` を単に渡したほうがシンプルだと思いますか？range を使っている理由は、しばしば **全ての** オブジェクトを描画したくないケースがあるからです。例えばほかのものはフレームから外れていたり、特定のインスタンスの集まりデバックしたいといったケースではそれらのうち選択されたものだけを描画したくなります。
 
 <!--
 Ok, now we know how to draw multiple instances of an object, how do we tell wgpu what particular instance to draw? We are going to use something known as an instance buffer.
@@ -89,7 +89,7 @@ unsafe impl bytemuck::Zeroable for InstanceRaw {}
 ```
 
 <!--
-This is the data to will go into the `wgpu::Buffer`. We keep these separate so that we can update the `Instance` as much as we want without needing to mess with matrices. We only need to update the raw data before we draw.
+This is the data that will go into the `wgpu::Buffer`. We keep these separate so that we can update the `Instance` as much as we want without needing to mess with matrices. We only need to update the raw data before we draw.
 -->
 これは `wgpu::Buffer` に入るデータです。行列を変更することなく `Instance` を更新できるようにするためこれらを別々に保持します。描画前に raw data を更新するだけです。
 
@@ -239,7 +239,7 @@ Self {
 ```
 
 <!--
-The last change we need to make is in the `render()` method. We need to change the range we're using in `draw_indexed()` to include use the number of instances.
+The last change we need to make is in the `render()` method. We need to change the range we're using in `draw_indexed()` to include the number of instances.
 -->
 最後の変更は `render()` メソッドの中です。 `draw_indexed()` でつかうインスタンスの数の範囲を変更します。
 
@@ -256,7 +256,7 @@ render_pass.draw_indexed(0..self.num_indices, 0, 0..self.instances.len() as _);
 <div class="warning">
 
 <!--
-Make sure if you add new instances to the `Vec` that you recreate the `instance_buffer` and as well as `uniform_bind_group`, otherwise you're new instances won't show up correctly.
+Make sure if you add new instances to the `Vec` that you recreate the `instance_buffer` and as well as `uniform_bind_group`, otherwise your new instances won't show up correctly.
 -->
 新しいインスタンスを `Vec` に追加したい時には `instance_buffer` と `uniform_bind_group` を再生成します。でなければ、新しいインスタンスが正しく表示されません。
 
@@ -284,7 +284,7 @@ Strage Buffer を uniform ブロックととても似た方法で宣言しまし
 ## gl_InstanceIndex
 
 <!--
-This GLSL variable let's use specify what instance we want to use. We can use the `gl_InstanceIndex` to index our `s_models` buffer to get the matrix for the current model.
+This GLSL variable lets us specify what instance we want to use. We can use the `gl_InstanceIndex` to index our `s_models` buffer to get the matrix for the current model.
 -->
 この GLSL の変数はこれから使おうとしているインスタンスがどれかをはっきりさせてくれます。`gl_InstanceIndex` を使うことで現在のモデルのインデックスがわかり、 `s_models` buffer から行列を取得する事ができます。
 

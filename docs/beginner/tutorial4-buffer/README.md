@@ -86,16 +86,33 @@ Now let's create the buffer in `new()`.
 
 ```rust
 // new()
-let vertex_buffer = device.create_buffer_with_data(
-    bytemuck::cast_slice(VERTICES),
-    wgpu::BufferUsage::VERTEX,
+let vertex_buffer = device.create_buffer_init(
+    &wgpu::util::BufferInitDescriptor {
+        label: Some("Vertex Buffer"),
+        contents: bytemuck::cast_slice(VERTICES),
+        usage: wgpu::BufferUsage::VERTEX,
+    }
 );
 ```
 
 <!--
-You'll note that we're using [bytemuck](https://docs.rs/bytemuck/1.2.0/bytemuck/) to cast our `VERTICES`. The `create_buffer_with_data()` method expects a `&[u8]`, and `bytemuck::cast_slice` does that for us. Add the following to your `Cargo.toml`.
+To access the `create_buffer_init` method on `wgpu::Device` we'll have to import the [DeviceExt](https://docs.rs/wgpu/0.6.0/wgpu/util/trait.DeviceExt.html#tymethod.create_buffer_init) extension trait. For more information on extension traits, check out [this article](http://xion.io/post/code/rust-extension-traits.html). 
 -->
-[bytemuck](https://docs.rs/bytemuck/1.2.0/bytemuck/) を使って `VERTICES` をキャストしていることに気づくでしょう。`create_buffer_with_data()` は `&[u8]` を期待していて `bytemuck::cast_slice` はそれを返します。`Cargo.toml` に以下を追加しましょう。
+`wgpu::Device` の `create_buffer_init` メソッドにアクセスするためには [DeviceExt](https://docs.rs/wgpu/0.6.0/wgpu/util/trait.DeviceExt.html#tymethod.create_buffer_init) という拡張トレイトを import する必要があります。拡張トレイトについて詳しく知りたい場合は [この記事](http://xion.io/post/code/rust-extension-traits.html) を読んでください。
+
+<!--
+To import the extension trait, this line somewhere near the top of `main.rs`.
+-->
+拡張トレイトをインポートするために、`main.rs` の上のほうに以下の行を足してください。
+
+```rust
+use wgpu::util::DeviceExt;
+```
+
+<!--
+You'll note that we're using [bytemuck](https://docs.rs/bytemuck/1.2.0/bytemuck/) to cast our `VERTICES`. The `create_buffer_init()` method expects a `&[u8]`, and `bytemuck::cast_slice` does that for us. Add the following to your `Cargo.toml`.
+-->
+[bytemuck](https://docs.rs/bytemuck/1.2.0/bytemuck/) を使って `VERTICES` をキャストしていることに気づくでしょう。`create_buffer_init()` は `&[u8]` を期待していて `bytemuck::cast_slice` はそれを返します。`Cargo.toml` に以下を追加しましょう。
 
 ```toml
 bytemuck = "1.4"
@@ -264,7 +281,7 @@ One more thing: we need to actually set the vertex buffer in the render method o
 // render()
 render_pass.set_pipeline(&self.render_pipeline);
 // NEW!
-render_pass.set_vertex_buffer(0, &self.vertex_buffer.slice(..));
+render_pass.set_vertex_buffer(0, self.vertex_buffer.slice(..));
 render_pass.draw(0..3, 0..1);
 ```
 
@@ -483,8 +500,8 @@ All we have to do now is update the `render()` method to use the `index_buffer`.
 ```rust
 // render()
 render_pass.set_pipeline(&self.render_pipeline);
-render_pass.set_vertex_buffer(0, &self.vertex_buffer(..));
-render_pass.set_index_buffer(&self.index_buffer.slice(..)); // 1.
+render_pass.set_vertex_buffer(0, self.vertex_buffer(..));
+render_pass.set_index_buffer(self.index_buffer.slice(..)); // 1.
 render_pass.draw_indexed(0..self.num_indices, 0, 0..1); // 2.
 ```
 

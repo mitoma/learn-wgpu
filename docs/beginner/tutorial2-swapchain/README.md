@@ -24,23 +24,23 @@ impl State {
     // Creating some of the wgpu types requires async code
     // いくつかの wgpu の型を作成するときに非同期コードが必要になります。
     async fn new(window: &Window) -> Self {
-        unimplemented!()
+        todo!()
     }
 
     fn resize(&mut self, new_size: winit::dpi::PhysicalSize<u32>) {
-        unimplemented!()
+        todo!()
     }
 
     fn input(&mut self, event: &WindowEvent) -> bool {
-        unimplemented!()
+        todo!()
     }
 
     fn update(&mut self) {
-        unimplemented!()
+        todo!()
     }
 
     fn render(&mut self) {
-        unimplemented!()
+        todo!()
     }
 }
 ```
@@ -340,7 +340,7 @@ We don't have anything to update yet, so leave the method empty.
 
 ```rust
 fn update(&mut self) {
-    // remove `unimplemented!()`
+    // remove `todo!()`
 }
 ```
 
@@ -496,24 +496,24 @@ wgpu::RenderPassColorAttachmentDescriptor {
 ```
 
 <!--
-The `RenderPassColorAttachmentDescriptor` has the `attachment` field which informs `wgpu` what texture to save the colors to. In this case we specify `frame.view` that we created using `swap_chain.get_next_texture()`. This means that any colors we draw to this attachment will get drawn to the screen.
+The `RenderPassColorAttachmentDescriptor` has the `attachment` field which informs `wgpu` what texture to save the colors to. In this case we specify `frame.view` that we created using `swap_chain.get_current_frame()`. This means that any colors we draw to this attachment will get drawn to the screen.
 -->
-`RenderPassColorAttachmentDescriptor` は `attachement` フィールドを持ち `wgpu` に texture がどんな色を持つかという情報を伝えます。ここでは `frame.view` を渡していて、これは `swap_chain.get_next_texture()` で作られたものです。つまりこのアタッチメントに描く色はすべてスクリーン上に描かれます。
+`RenderPassColorAttachmentDescriptor` は `attachement` フィールドを持ち `wgpu` に texture がどんな色を持つかという情報を伝えます。ここでは `frame.view` を渡していて、これは `swap_chain.get_current_frame()` で作られたものです。つまりこのアタッチメントに描く色はすべてスクリーン上に描かれます。
 
 <!--
-This is the texture that will received the resolved output. This will be the same as `attachment` unless multisampling is enabled. We don't need to specify this, so we leave it as `None`.
+This is the texture that will receive the resolved output. This will be the same as `attachment` unless multisampling is enabled. We don't need to specify this, so we leave it as `None`.
 -->
 これは解決された出力を受け取るテクスチャです。multisampling を有効にしていなければ `attachement` と同じようなものです。今は必要がないので `None` を指定しておきます。
 
 <!--
-The `obs` field takes an `wpgu::Operations` object. This tells wgpu what to do with the colors on the screen (specified by `frame.view`). The `load` field tells wgpu how to handle colors store from the previous frame. Currently we are clearing the screen with a bluish color.
+The `ops` field takes a `wpgu::Operations` object. This tells wgpu what to do with the colors on the screen (specified by `frame.view`). The `load` field tells wgpu how to handle colors stored from the previous frame. Currently we are clearing the screen with a bluish color.
 -->
-`obs` field は `wpgu::Operations` を受け取ります。これは wgpu にどの色を使ってスクリーンを描画するか教えます(`frame.view` で指定されています)。`load` フィールドは前のフレームの色をどのように扱うかを決めます。今は青みがかった色でスクリーンをクリアしています。
+`ops` field は `wpgu::Operations` を受け取ります。これは wgpu にどの色を使ってスクリーンを描画するか教えます(`frame.view` で指定されています)。`load` フィールドは前のフレームの色をどのように扱うかを決めます。今は青みがかった色でスクリーンをクリアしています。
 
 <div class="note">
 
 <!--
-It's not uncommon to not clear the screen if the streen is going to be completely covered up with objects. If you're scene doesn't cover the entire screen however you'll end up with something like this.
+It's not uncommon to not clear the screen if the screen is going to be completely covered up with objects. If your scene doesn't cover the entire screen however you'll end up with something like this.
 -->
 スクリーンが完全にオブジェクトで覆われている場合、スクリーンをクリアしないケースケースも珍しくありません。もしスクリーンを全てカバーしていないシーンであればこのようになります。
 
@@ -524,7 +524,7 @@ It's not uncommon to not clear the screen if the streen is going to be completel
 ## Challenge
 
 <!--
-Modify the `input()` method to capture mouse events, and update the clear color using that. *Hint: you'll probably need to use `WindowEvent::CursorMoved`*
+Modify the `input()` method to capture mouse events, and update the clear color using that. *Hint: you'll probably need to use `WindowEvent::CursorMoved`*.
 -->
 `input()` を修正しマウスイベントをキャプチャして clear_color を変化させてみましょう。ヒント: あなたはたぶん WindowEvent::CursorMoved が必要になるでしょう。
 

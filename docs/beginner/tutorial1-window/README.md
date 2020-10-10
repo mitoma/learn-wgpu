@@ -48,7 +48,7 @@ Vulkan backend を有効にするには、 `Cargo.toml` に新しいセクショ
 ``` toml
 [dependencies.wgpu]
 version = "0.6"
-features = ["vulkan"]
+features = ["vulkan-portability"]
 ```
 
 <!--
