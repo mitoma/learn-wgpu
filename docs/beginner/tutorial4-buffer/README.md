@@ -248,9 +248,12 @@ wgpu::VertexBufferDescriptor {
 <!--
 While this is definitely nice, we would have to change the lifetime on `wgpu::VertexBufferDescriptor` to `'static` as rust wouldn't compile the code because the result of `vertex_attr_array` is a temporary value, which we can't return from a function.
 -->
-これは全く良いもので、
+これは全く良いものですが、`wgpu::VertexBufferDescriptor` のライフタイムを `'static'` に変更すると `vertex_attr_array` は一時的な値なのでコンパイルできなくなり、関数から値を返せなくなります。
 
+<!--
 Beyond that, I feel it's good to show how the data gets mapped, so I'll forgo using this macro for now.
+-->
+しかしそれ以上に、どのようにデータを取得するかマッピングすることを明示することは良いことなので、今はこのマクロのことは忘れます。
 
 </div>
 
