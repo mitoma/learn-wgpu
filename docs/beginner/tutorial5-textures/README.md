@@ -26,6 +26,7 @@ If we want to map an image to our mesh, we first need an image. Let's use this h
 We'll use the [image crate](https://crates.io/crates/image) to load our tree. We already added to our dependencies in the first section, so all we have to do is use it.
 -->
 [image crate](https://crates.io/crates/image) を使って木の画像をロードします。すでに依存のファーストセクションに追加されているので使うことができます。
+
 <!--
 In `State`'s `new()` method add the following just after creating the `swap_chain`:
 -->
@@ -518,7 +519,7 @@ For now, all we need to know is that `set = 0` corresponds to the 1st parameter 
 ## The results
 
 <!--
-If we run our program now we should get the following result.
+If we run our program now we should get the following result:
 -->
 プログラムを走らせると以下のような結果になるでしょう。
 
