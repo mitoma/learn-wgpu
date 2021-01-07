@@ -443,10 +443,10 @@ Now we can put some code in our `build.rs`.
 これで `build.rs` にコードを書いていけます。
 
 ```rust
-use glob::glob;
 use anyhow::*;
+use glob::glob;
 use std::fs::{read_to_string, write};
-use std::path::{PathBuf};
+use std::path::PathBuf;
 
 struct ShaderData {
     src: String,
@@ -457,7 +457,8 @@ struct ShaderData {
 
 impl ShaderData {
     pub fn load(src_path: PathBuf) -> Result<Self> {
-        let extension = src_path.extension()
+        let extension = src_path
+            .extension()
             .context("File has no extension")?
             .to_str()
             .context("Extension cannot be converted to &str")?;
@@ -471,15 +472,16 @@ impl ShaderData {
         let src = read_to_string(src_path.clone())?;
         let spv_path = src_path.with_extension(format!("{}.spv", extension));
 
-        Ok(Self { src, src_path, spv_path, kind })
+        Ok(Self {
+            src,
+            src_path,
+            spv_path,
+            kind,
+        })
     }
 }
 
 fn main() -> Result<()> {
-    // This tells cargo to rerun this script if something in /src/ changes.
-    // これは cargo に /src/ 以下に変更があった時にスクリプトを再実行することを伝えます。
-    println!("cargo:rerun-if-changed=src/*");
-
     // Collect all shaders recursively within /src/
     // 全ての src の shader を再帰的に集めます。
     let mut shader_paths = [
@@ -490,17 +492,15 @@ fn main() -> Result<()> {
 
     // This could be parallelized
     // ここは並列化できます。
-    let shaders = shader_paths.iter_mut()
+    let shaders = shader_paths
+        .iter_mut()
         .flatten()
-        .map(|glob_result| {
-            ShaderData::load(glob_result?)
-        })
+        .map(|glob_result| ShaderData::load(glob_result?))
         .collect::<Vec<Result<_>>>()
         .into_iter()
-        .collect::<Result<Vec<_>>>();
+        .collect::<Result<Vec<_>>>()?;
 
-    let mut compiler = shaderc::Compiler::new()
-        .context("Unable to create shader compiler")?;
+    let mut compiler = shaderc::Compiler::new().context("Unable to create shader compiler")?;
 
     // This can't be parallelized. The [shaderc::Compiler] is not
     // thread safe. Also, it creates a lot of resources. You could
@@ -511,13 +511,17 @@ fn main() -> Result<()> {
     // また、この crate は多くのリソースを必要とします。
     // マルチプロセス化してやることもできますが、
     // 多分直近で変更されたシェーダーだけをコンパイルするほうがマシです。
-    for shader in shaders? {
+    for shader in shaders {
+        // This tells cargo to rerun this script if something in /src/ changes.
+        // これは cargo に /src/ 以下に変更があった時にスクリプトを再実行することを伝えます。
+        println!("cargo:rerun-if-changed={}", shader.src_path.as_os_str().to_str().unwrap());
+        
         let compiled = compiler.compile_into_spirv(
             &shader.src,
             shader.kind,
             &shader.src_path.to_str().unwrap(),
             "main",
-            None
+            None,
         )?;
         write(shader.spv_path, compiled.as_binary_u8())?;
     }
@@ -539,9 +543,9 @@ let fs_module = device.create_shader_module(wgpu::include_spirv!("shader.frag.sp
 <div class="note">
 
 <!--
-I'm glossing over the code in the build script as this guide is focused on wgpu related topics. Designing build scripts is a topic in and of itself, and going into it in detail would be quite a long tangent.
+I'm glossing over the code in the build script as this guide is focused on wgpu related topics. Designing build scripts is a topic in and of itself, and going into it in detail would be quite a long tangent. You can learn more about build scripts in [The Cargo Book](https://doc.rust-lang.org/cargo/reference/build-scripts.html).
 -->
-build script の code について wgpu に関連したトピックにフォーカスして紹介しています。build script のデザインやそれ自身についてのトピックや、詳細についてはとても長い説明が必要です。
+build script の code について wgpu に関連したトピックにフォーカスして紹介しています。build script のデザインやそれ自身についてのトピックや、詳細についてはとても長い説明が必要です。ビルドスクリプトについて学びたいときには [The Cargo Book](https://doc.rust-lang.org/cargo/reference/build-scripts.html) を見るとよいでしょう。
 
 </div>
 

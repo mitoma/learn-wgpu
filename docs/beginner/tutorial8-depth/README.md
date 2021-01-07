@@ -62,7 +62,6 @@ impl Texture {
         let desc = wgpu::TextureDescriptor {
             label: Some(label),
             size,
-            array_layer_count: 1,
             mip_level_count: 1,
             sample_count: 1,
             dimension: wgpu::TextureDimension::D2,
@@ -72,7 +71,6 @@ impl Texture {
         };
         let texture = device.create_texture(&desc);
 
-        let texture = device.create_texture(&desc);
         let view = texture.create_view(&wgpu::TextureViewDescriptor::default());
         let sampler = device.create_sampler(
             &wgpu::SamplerDescriptor { // 4.

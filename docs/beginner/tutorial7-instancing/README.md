@@ -79,13 +79,10 @@ Using these values directly in the shader would be a pain as quaternions don't h
 ```rust
 // NEW!
 #[repr(C)]
-#[derive(Copy, Clone)]
+#[derive(Copy, Clone, bytemuck::Pod, bytemuck::Zeroable)]
 struct InstanceRaw {
-    model: cgmath::Matrix4<f32>,
+    model: [[f32; 4]; 4],
 }
-
-unsafe impl bytemuck::Pod for InstanceRaw {}
-unsafe impl bytemuck::Zeroable for InstanceRaw {}
 ```
 
 <!--
@@ -103,7 +100,7 @@ Let's create a method on `Instance` to convert to `InstanceRaw`.
 impl Instance {
     fn to_raw(&self) -> InstanceRaw {
         InstanceRaw {
-            model: cgmath::Matrix4::from_translation(self.position) * cgmath::Matrix4::from(self.rotation),
+            model: (cgmath::Matrix4::from_translation(self.position) * cgmath::Matrix4::from(self.rotation)).into(),
         }
     }
 }
@@ -117,7 +114,6 @@ Now we need to add 2 fields to `State`: `instances`, and `instance_buffer`.
 ```rust
 struct State {
     instances: Vec<Instance>,
-    #[allow(dead_code)]
     instance_buffer: wgpu::Buffer,
 }
 ```
@@ -177,50 +173,78 @@ let instance_buffer = device.create_buffer_init(
     &wgpu::util::BufferInitDescriptor {
         label: Some("Instance Buffer"),
         contents: bytemuck::cast_slice(&instance_data),
-        usage: wgpu::BufferUsage::STORAGE,
+        usage: wgpu::BufferUsage::VERTEX,
     }
 );
 ```
 
 <!--
-We need a way to bind our new instance buffer so we can use it in the vertex shader. We could create a new bind group (and we probably should), but for simplicity, I'm going to add a binding to the `uniform_bind_group` that references our `instance_buffer`.
+We're going to need to create a new `VertexBufferDescriptor` for `InstanceRaw`.
 -->
-新しい `instance_buffer` を頂点シェーダで使えるようにするために bind する方法が必要です。新しい bind group を作ることもできますし、たぶんそうすべきですが、簡単のためにここでは `uniform_bind_group` が `instance_buffer` を参照するようにします。
+`InstanceRaw` のために新しい `VertexBufferDescriptor` を生成する必要があります。
 
 ```rust
-let uniform_bind_group_layout = device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
-    entries: &[
-        // ...
-        // NEW!
-        wgpu::BindGroupLayoutEntry {
-            binding: 1,
-            visibility: wgpu::ShaderStage::VERTEX,
-            ty: wgpu::BindingType::StorageBuffer {
-                // We don't plan on changing the size of this buffer
-                // buffer size の変更は考えていないので false を指定。
-                dynamic: false,
-                // The shader is not allowed to modify it's contents
-                // shader にはコンテンツの変更を許可しないので true
-                readonly: true,
-                min_binding_size: None,
-            },
-            count: None,
-        },
-    ],
-    label: Some("uniform_bind_group_layout"),
-});
+impl InstanceRaw {
+    fn desc<'a>() -> wgpu::VertexBufferDescriptor<'a> {
+        use std::mem;
+        wgpu::VertexBufferDescriptor {
+            stride: mem::size_of::<InstanceRaw>() as wgpu::BufferAddress,
+            // We need to switch from using a step mode of Vertex to Instance
+            // This means that our shaders will only change to use the next
+            // instance when the shader starts processing a new instance
+            // step mode を Vertex から Instance に切り替える必要があります。
+            // これはシェーダーが新しいインスタンスを処理するときだけ
+            // 次のインスタンスを使用するようにすることを意味します。
+            step_mode: wgpu::InputStepMode::Instance,
+            attributes: &[
+                wgpu::VertexAttributeDescriptor {
+                    offset: 0,
+                    // While our vertex shader only uses locations 0, and 1 now, in later tutorials we'll
+                    // be using 2, 3, and 4, for Vertex. We'll start at slot 5 not conflict with them later
+                    // このチュートリアルの頂点シェーダでは、location 0 と 1 だけしか使っていませんが、
+                    // 後のチュートリアルでは 2, 3, 4 も 頂点シェーダで使います。
+                    // スロット 5 以降を使えばコンフリクトしません。
+                    shader_location: 5,
+                    format: wgpu::VertexFormat::Float4,
+                },
+                // A mat4 takes up 4 vertex slots as it is technically 4 vec4s. We need to define a slot
+                // for each vec4. We don't have to do this in code though.
+                // mat4 は技術的には 4 つの vec4 になるので 4 つの頂点スロットを使います。
+                wgpu::VertexAttributeDescriptor {
+                    offset: mem::size_of::<[f32; 4]>() as wgpu::BufferAddress,
+                    shader_location: 6,
+                    format: wgpu::VertexFormat::Float4,
+                },
+                wgpu::VertexAttributeDescriptor {
+                    offset: mem::size_of::<[f32; 8]>() as wgpu::BufferAddress,
+                    shader_location: 7,
+                    format: wgpu::VertexFormat::Float4,
+                },
+                wgpu::VertexAttributeDescriptor {
+                    offset: mem::size_of::<[f32; 12]>() as wgpu::BufferAddress,
+                    shader_location: 8,
+                    format: wgpu::VertexFormat::Float4,
+                },
+            ],
+        }
+    }
+}
+```
 
-let uniform_bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
-    layout: &uniform_bind_group_layout,
-    entries: &[
-        // ...
-        // NEW!
-        wgpu::BindGroupEntry {
-            binding: 1,
-            resource: wgpu::BindingResource::Buffer(instance_buffer.slice(..))
-        },
-    ],
-    label: Some("uniform_bind_group"),
+<!--
+We need to add this descriptor to the render pipeline so that we can use it when we render.
+-->
+この descriptor をレンダリング時に使用するため render pipeline に追加する必要があります。
+
+```rust
+let render_pipeline = device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
+    // ...
+    vertex_state: wgpu::VertexStateDescriptor {
+        index_format: wgpu::IndexFormat::Uint16,
+        // UPDATED!
+        vertex_buffers: &[Vertex::desc(), InstanceRaw::desc()],
+    },
+    // ...
 });
 ```
 
@@ -239,15 +263,17 @@ Self {
 ```
 
 <!--
-The last change we need to make is in the `render()` method. We need to change the range we're using in `draw_indexed()` to include the number of instances.
+The last change we need to make is in the `render()` method. We need to bind our `instance_buffer` and we need to change the range we're using in `draw_indexed()` to include the number of instances.
 -->
-最後の変更は `render()` メソッドの中です。 `draw_indexed()` でつかうインスタンスの数の範囲を変更します。
+最後の変更は `render()` メソッドの中です。`instance_buffer` をバインドし、 `draw_indexed()` でつかうインスタンスの数の範囲を変更する必要があります。
 
 ```rust
 render_pass.set_pipeline(&self.render_pipeline);
 render_pass.set_bind_group(0, &self.diffuse_bind_group, &[]);
 render_pass.set_bind_group(1, &self.uniform_bind_group, &[]);
 render_pass.set_vertex_buffer(0, &self.vertex_buffer.slice(..));
+// NEW!
+render_pass.set_vertex_buffer(1, self.instance_buffer.slice(..));
 render_pass.set_index_buffer(&self.index_buffer.slice(..));
 // UPDATED!
 render_pass.draw_indexed(0..self.num_indices, 0, 0..self.instances.len() as _);
@@ -256,54 +282,34 @@ render_pass.draw_indexed(0..self.num_indices, 0, 0..self.instances.len() as _);
 <div class="warning">
 
 <!--
-Make sure if you add new instances to the `Vec` that you recreate the `instance_buffer` and as well as `uniform_bind_group`, otherwise your new instances won't show up correctly.
+Make sure if you add new instances to the `Vec`, that you recreate the `instance_buffer` and as well as `uniform_bind_group`, otherwise your new instances won't show up correctly.
 -->
+
 新しいインスタンスを `Vec` に追加したい時には `instance_buffer` と `uniform_bind_group` を再生成します。でなければ、新しいインスタンスが正しく表示されません。
 
 </div>
 
-## Storage Buffers
-
 <!--
-When we modified `uniform_bind_group_layout`, we specified that our `instance_buffer` would be of type `wgpu::BindingType::StorageBuffer`. A storage buffer functions like an array that persists between shader invocations. Let's take a look at what it looks like in `shader.vert`.
+We need to reference our new matrix in `shader.vert` so that we can use it for our instances. Add the following to the top of `shader.vert`.
 -->
-`uniform_bind_group_layout` を変更したとき `instance_buffer` を `wgpu::BindingType::StorageBuffer` という型で作りました。Storage Buffer の機能は配列に似ており、shader 呼び出しの間永続化されています。`shader.vert` の中でそれがどのようになっているか見てみましょう。
+`shader.vert` で新しいマトリクスをインスタンスで利用するために、参照する必要があります。`shader.vert` のトップに以下のコードを追加してください。
 
 ```glsl
-layout(set=1, binding=1) 
-buffer Instances {
-    mat4 s_models[];
-};
+layout(location=5) in mat4 model_matrix;
 ```
 
 <!--
-We declare a storage buffer in a very similar way to how we declare a uniform block. The only real difference is that we use the `buffer` keyword. We can then use `s_models` to position our models in the scene. But how do we know what instance to use?
+We'll apply the `model_matrix` before we apply `u_view_proj`. We do this because the `u_view_proj` changes the coordinate system from `world space` to `camera space`. Our `model_matrix` is a `world space` transformation, so we don't want to be in `camera space` when using it.
 -->
-Strage Buffer を uniform ブロックととても似た方法で宣言しました。実際、変更点は `buffer` というキーワードだけです。`s_models` をモデルの位置として使うことができます。しかし、どのようししてどのインスタンスを使っているか知ることができるでしょう？
-
-## gl_InstanceIndex
-
-<!--
-This GLSL variable lets us specify what instance we want to use. We can use the `gl_InstanceIndex` to index our `s_models` buffer to get the matrix for the current model.
--->
-この GLSL の変数はこれから使おうとしているインスタンスがどれかをはっきりさせてくれます。`gl_InstanceIndex` を使うことで現在のモデルのインデックスがわかり、 `s_models` buffer から行列を取得する事ができます。
+`u_view_proj` を適用する前に `model_matrix` を適用します。なぜなら `u_view_proj` は 座標系をワールド座標系からカメラ座標系に変更するからです。`model_matrix` はワールド座標系での変換なので、利用するときにカメラ座標系になっていてはいけません。
 
 ```glsl
 void main() {
     v_tex_coords = a_tex_coords;
     // UPDATED!
-    gl_Position = u_view_proj * s_models[gl_InstanceIndex] * vec4(a_position, 1.0);
+    gl_Position = u_view_proj * model_matrix * vec4(a_position, 1.0);
 }
 ```
-
-<div class="note">
-
-<!--
-The value of `gl_InstanceIndex` is based on the range passed to the `instances` parameter of `draw_indexed`. Using `3..instances.len() as _` would mean that the 1st-3rd instances would be skipped.
--->
-`gl_InstanceIndex` の値は `draw_indexed` のインスタンスパラメータで渡した値に基づいています。`3..instances.len() as _` を渡した場合、1～3番目のインスタンスはスキップされます。
-
-</div>
 
 <!--
 With all that done, we should have a forest of trees!

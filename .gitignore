@@ -5,3 +5,8 @@ target/
 /image.png
 /output*.*
 output/
+
+/trace
+trace.zip
+
+secrets.txt

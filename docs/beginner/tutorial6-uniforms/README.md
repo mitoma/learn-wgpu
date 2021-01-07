@@ -121,24 +121,30 @@ Up to this point we've used `Buffer`s to store our vertex and index data, and ev
 ここまでに保存している座標やインデックスのデータ、texture をロードするために `Buffer` を使いました。それを再び利用して、uniform buffer というものを作ります。uniform はどの sharder からでも呼び出すことができる blob data です。技術的にはすでに uniform を texture や sampler のために使っています。今度はビュープロジェクション行列を保存するために使います。`Uniforms` という構造体を作りましょう。
 
 ```rust
-#[repr(C)] // We need this for Rust to store our data correctly for the shaders
-           // sharder にデータを正確に保存するために必要です
-#[derive(Debug, Copy, Clone)] // This is so we can store this in a buffer
-                              // これを書くことでこの構造体を buffer に保存することができます
-struct Uniforms {
-    view_proj: cgmath::Matrix4<f32>,
+// We need this for Rust to store our data correctly for the shaders
+// sharder にデータを正確に保存するために必要です
+#[repr(C)]
+// This is so we can store this in a buffer
+// これを書くことでこの構造体を buffer に保存することができます
+#[derive(Debug, Copy, Clone, bytemuck::Pod, bytemuck::Zeroable)]
+struct Uniforms
+    // We can't use cgmath with bytemuck directly so we'll have
+    // to convert the Matrix4 into a 4x4 f32 array
+    // cgmath を bytemuch で直接利用することはできないので、
+    // Matrix4 を 4 x 4 の f32 の array に変換します。
+    view_proj: [[f32; 4]; 4],
 }
 
 impl Uniforms {
     fn new() -> Self {
         use cgmath::SquareMatrix;
         Self {
-            view_proj: cgmath::Matrix4::identity(),
+            view_proj: cgmath::Matrix4::identity().into(),
         }
     }
 
     fn update_view_proj(&mut self, camera: &Camera) {
-        self.view_proj = camera.build_view_projection_matrix();
+        self.view_proj = camera.build_view_projection_matrix().into();
     }
 }
 ```
@@ -296,8 +302,7 @@ uniform Uniforms {
 };
 
 void main() {
-    v_tex_coords = a_tex_coords;
-    // UPDATED!
+    v_tex_coords = a_tex_coords;    // UPDATED!
     gl_Position = u_view_proj * vec4(a_position, 1.0); // 3.
 }
 ```

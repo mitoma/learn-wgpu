@@ -110,23 +110,41 @@ use wgpu::util::DeviceExt;
 ```
 
 <!--
-You'll note that we're using [bytemuck](https://docs.rs/bytemuck/1.2.0/bytemuck/) to cast our `VERTICES`. The `create_buffer_init()` method expects a `&[u8]`, and `bytemuck::cast_slice` does that for us. Add the following to your `Cargo.toml`.
+You'll note that we're using [bytemuck](https://docs.rs/bytemuck/1.2.0/bytemuck/) to cast our `VERTICES` as a `&[u8]`. The `create_buffer_init()` method expects a `&[u8]`, and `bytemuck::cast_slice` does that for us. Add the following to your `Cargo.toml`.
 -->
-[bytemuck](https://docs.rs/bytemuck/1.2.0/bytemuck/) を使って `VERTICES` をキャストしていることに気づくでしょう。`create_buffer_init()` は `&[u8]` を期待していて `bytemuck::cast_slice` はそれを返します。`Cargo.toml` に以下を追加しましょう。
+[bytemuck](https://docs.rs/bytemuck/1.2.0/bytemuck/) を使って `VERTICES` を `&[u8]` にキャストしていることに気づくでしょう。`create_buffer_init()` は `&[u8]` を期待していて `bytemuck::cast_slice` はそれを返します。`Cargo.toml` に以下を追加しましょう。
 
 ```toml
-bytemuck = "1.4"
+bytemuck = { version = "1.4", features = [ "derive" ] }
 ```
 
 <!--
-We're also going to need to implement two traits to get `bytemuck` to work. These are [bytemuck::Pod](https://docs.rs/bytemuck/1.3.0/bytemuck/trait.Pod.html) and [bytemuck::Zeroable](https://docs.rs/bytemuck/1.3.0/bytemuck/trait.Zeroable.html). `Pod` indicates that our `Vertex` is "Plain Old Data", and thus can be interpretted as a `&[u8]`. `Zeroable` indicates that we can use `std::mem::zeroed()`. These traits don't require us to implement any methods, so we just need to use the following to get our code to work.
+We're also going to need to implement two traits to get `bytemuck` to work. These are [bytemuck::Pod](https://docs.rs/bytemuck/1.3.0/bytemuck/trait.Pod.html) and [bytemuck::Zeroable](https://docs.rs/bytemuck/1.3.0/bytemuck/trait.Zeroable.html). `Pod` indicates that our `Vertex` is "Plain Old Data", and thus can be interpretted as a `&[u8]`. `Zeroable` indicates that we can use `std::mem::zeroed()`. We can modify our `Vertex` struct to derive these methods.
 -->
-`bytemuck` を機能させるために二つのトレイトを実装する必要があります。それは [bytemuck::Pod](https://docs.rs/bytemuck/1.3.0/bytemuck/trait.Pod.html) と [bytemuck::Zeroable](https://docs.rs/bytemuck/1.3.0/bytemuck/trait.Zeroable.html) です。`Pod` は `Vertex` が "Plain Old Data" であるということを表します。これのおかげで `&[u8]` として読み取ることができるわけです。`Zeroable` は `std::mem::zeroed()` を使えることを表します。これらのトレイトはメソッドを実装する必要はありませんので、以下のように追記する必要があるだけです。
+`bytemuck` を機能させるために二つのトレイトを実装する必要があります。それは [bytemuck::Pod](https://docs.rs/bytemuck/1.3.0/bytemuck/trait.Pod.html) と [bytemuck::Zeroable](https://docs.rs/bytemuck/1.3.0/bytemuck/trait.Zeroable.html) です。`Pod` は `Vertex` が "Plain Old Data" であるということを表します。これのおかげで `&[u8]` として読み取ることができるわけです。`Zeroable` は `std::mem::zeroed()` を使えることを表します。`Vertex` 構造体を修正することでそれらのメソッドを derive することができます。
+
+```rust
+#[repr(C)]
+#[derive(Copy, Clone, Debug, bytemuck::Pod, bytemuck::Zeroable)]
+struct Vertex {
+    position: [f32; 3],
+    color: [f32; 3],
+}
+```
+
+<div class="note">
+
+<!--
+If you're struct includes types that don't implement `Pod` and `Zeroable`, you'll need to implement these traits manually. These traits don't require us to implement any methods, so we just need to use the following to get our code to work.
+-->
+もし構造体に `Pod` と `Zeroable` が実装されていない型が含まれている場合は、手動でそれらのトレイトを実装する必要があります。これらのトレイトは何のメソッドも必要としないので、ちょうど以下のようにコードを書くだけで機能します。
 
 ```rust
 unsafe impl bytemuck::Pod for Vertex {}
 unsafe impl bytemuck::Zeroable for Vertex {}
 ```
+
+</div>
 
 <!--
 Finally we can add our `vertex_buffer` to our `State` struct.
@@ -241,7 +259,7 @@ Specifying the attributes as we are now is quite verbose. We could use the `vert
 wgpu::VertexBufferDescriptor {
     stride: std::mem::size_of::<Vertex>() as wgpu::BufferAddress,
     step_mode: wgpu::InputStepMode::Vertex,
-    attributes: &wgpu::vertex_attr_array[0 => Float3, 1 => Float3],
+    attributes: &wgpu::vertex_attr_array![0 => Float3, 1 => Float3],
 }
 ```
 
@@ -475,9 +493,30 @@ let num_indices = INDICES.len() as u32;
 ```
 
 <!--
-We don't need to implement `Pod` and `Zeroable` for our indices, because `bytemuck` has already implemented them for basic types such as `u16`. That means we can just add `index_buffer` and `num_indices` to `State`.
+We don't need to implement `Pod` and `Zeroable` for our indices, because `bytemuck` has already implemented them for basic types such as `u16`. That means we can just add `index_buffer` and `num_indices` to the `State` struct.
 -->
 `Pod` と `Zeroable` を indices に実装する必要はありません。`bytemuck` はすでに一般的な `u16` に対しての実装されているからです。つまり `State` に `index_buffer` と `num_indices` を追加するだけでよいのです。
+
+```rust
+struct State {
+    surface: wgpu::Surface,
+    device: wgpu::Device,
+    queue: wgpu::Queue,
+    sc_desc: wgpu::SwapChainDescriptor,
+    swap_chain: wgpu::SwapChain,
+    size: winit::dpi::PhysicalSize<u32>,
+    render_pipeline: wgpu::RenderPipeline,
+    vertex_buffer: wgpu::Buffer,
+    // NEW!
+    index_buffer: wgpu::Buffer, 
+    num_indicies: u32,
+}
+```
+
+<!--
+And then populate these fields in the constructor:
+-->
+そしてコンストラクタでそれらのフィールドを追加します。
 
 ```rust
 Self {

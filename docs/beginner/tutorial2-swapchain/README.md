@@ -39,7 +39,7 @@ impl State {
         todo!()
     }
 
-    fn render(&mut self) {
+    fn render(&mut self) -> Result<(), wgpu::SwapChainError> {
         todo!()
     }
 }
@@ -354,9 +354,10 @@ Here's where the magic happens. First we need to get a frame to render to. This 
 ```rust
 // impl State
 
-fn render(&mut self) {
-    let frame = self.swap_chain.get_current_frame()
-        .expect("Timeout getting texture")
+fn render(&mut self) -> Result<(), wgpu::SwapChainError> {
+    let frame = self
+        .swap_chain
+        .get_current_frame()?
         .output;
 ```
 
@@ -400,6 +401,8 @@ Now we can actually get to clearing the screen (long time coming). We need to us
 
     // submit will accept anything that implements IntoIter
     self.queue.submit(std::iter::once(encoder.finish()));
+
+    Ok(())
 }
 ```
 
@@ -430,7 +433,15 @@ event_loop.run(move |event, _, control_flow| {
         // ...
         Event::RedrawRequested(_) => {
             state.update();
-            state.render();
+            match state.render() {
+                Ok(_) => {}
+                // Recreate the swap_chain if lost
+                Err(wgpu::SwapChainError::Lost) => state.resize(state.size),
+                // The system is out of memory, we should probably quit
+                Err(wgpu::SwapChainError::OutOfMemory) => *control_flow = ControlFlow::Exit,
+                // All other errors (Outdated, Timeout) should be resolved by the next frame
+                Err(e) => eprintln!("{:?}", e),
+            }
         }
         Event::MainEventsCleared => {
             // RedrawRequested will only trigger once, unless we manually
@@ -501,9 +512,9 @@ The `RenderPassColorAttachmentDescriptor` has the `attachment` field which infor
 `RenderPassColorAttachmentDescriptor` は `attachement` フィールドを持ち `wgpu` に texture がどんな色を持つかという情報を伝えます。ここでは `frame.view` を渡していて、これは `swap_chain.get_current_frame()` で作られたものです。つまりこのアタッチメントに描く色はすべてスクリーン上に描かれます。
 
 <!--
-This is the texture that will receive the resolved output. This will be the same as `attachment` unless multisampling is enabled. We don't need to specify this, so we leave it as `None`.
+The `resolve_target` is the texture that will receive the resolved output. This will be the same as `attachment` unless multisampling is enabled. We don't need to specify this, so we leave it as `None`.
 -->
-これは解決された出力を受け取るテクスチャです。multisampling を有効にしていなければ `attachement` と同じようなものです。今は必要がないので `None` を指定しておきます。
+この `resolve_target` は、解決された出力を受け取るテクスチャです。multisampling を有効にしていなければ `attachement` と同じようなものです。今は必要がないので `None` を指定しておきます。
 
 <!--
 The `ops` field takes a `wpgu::Operations` object. This tells wgpu what to do with the colors on the screen (specified by `frame.view`). The `load` field tells wgpu how to handle colors stored from the previous frame. Currently we are clearing the screen with a bluish color.

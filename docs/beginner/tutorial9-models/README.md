@@ -17,7 +17,7 @@ pub trait Vertex {
 }
 
 #[repr(C)]
-#[derive(Copy, Clone, Debug)]
+#[derive(Copy, Clone, Debug, bytemuck::Pod, bytemuck::Zeroable)]
 pub struct ModelVertex {
     position: [f32; 3],
     tex_coords: [f32; 2],
@@ -79,9 +79,9 @@ let render_pipeline = device.create_render_pipeline(&wgpu::RenderPipelineDescrip
 ```
 
 <!--
-With all that in place we need a model to render. If you have one already that's great, but I've supplied a [zip file](https://github.com/sotrh/learn-wgpu/blob/master/code/beginner/tutorial9-models/src/res/cube.zip) with the model and all of it's textures. We're going to put this model in a new `res` folder next to the existing `src` folder.
+With all that in place we need a model to render. If you have one already that's great, but I've supplied a [zip file](https://github.com/sotrh/learn-wgpu/blob/master/code/beginner/tutorial9-models/res/cube.zip) with the model and all of it's textures. We're going to put this model in a new `res` folder next to the existing `src` folder.
 -->
-すべてが整うと、レンダリングのためにモデルが必要になります。もしすでに持っていれば素晴らしいことですが、なければ [zip file](https://github.com/sotrh/learn-wgpu/blob/master/code/beginner/tutorial9-models/src/res/cube.zip) でモデルとテクスチャを用意してあります。`res` フォルダにモデルを置きましょう。
+すべてが整うと、レンダリングのためにモデルが必要になります。もしすでに持っていれば素晴らしいことですが、なければ [zip file](https://github.com/sotrh/learn-wgpu/blob/master/code/beginner/tutorial9-models/res/cube.zip) でモデルとテクスチャを用意してあります。`res` フォルダにモデルを置きましょう。
 
 ## Accessing files in the res folder
 

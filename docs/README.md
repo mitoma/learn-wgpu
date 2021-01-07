@@ -33,6 +33,21 @@ You should be fairly familiar with Rust before using this tutorial as I won't go
 このチュートリアルでは Rust の構文の詳細に触れないので、事前に Rust の構文についてはよく知っている必要があります。もし万全でなければ [Rust tutorial](https://www.rust-lang.org/learn) をやりましょう。また Cargo にも精通しておいてください。
 
 <!--
-I'm using this project as a way to learn wgpu myself, so I might miss some important details, or explain things wrong. I'm always open to constructive feedback. That being said, let's get started!
+I'm using this project as a way to learn wgpu myself, so I might miss some important details, or explain things wrong. I'm always open to constructive feedback.
 -->
-私はこのプロジェクトを私自身が wgpu を学ぶために行っています。なので重要な詳細を省いてしまっていたりもしかしたら間違っているかもしれません。建設的な feedback には前向きです。それではやっていきましょう！
+私はこのプロジェクトを私自身が wgpu を学ぶために行っています。なので重要な詳細を省いてしまっていたりもしかしたら間違っているかもしれません。建設的な feedback には前向きです。
+
+<!--
+## Contribution and Support
+-->
+## コントリビュートとサポートについて
+
+<!--
+* I accept pull requests for fixing issues with this tutorial such as typos, incorrect information, and other inconsistencies.
+* Due to wgpu's rapidly changing api, I'm not accepting any new pull requests for showcase demos.
+* If you want to support me directly, check out my [patreon](https://www.patreon.com/sotrh)!
+-->
+* チュートリアルにおけるタイポ、不正確な情報、不整合といった issue の修正に相当するプルリクエストは受け付けます。
+* wgpu は急速に API が変更されているため、いくつかのショウケースのデモのプルリクエストは受け付けられません。
+* もしあなたが私を直接サポートしようと思ってくれるなら、私の [patreon](https://www.patreon.com/sotrh) をチェックしてください！
+
